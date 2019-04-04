@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package Lykke.Exchange.Api.MarketData;
+
+service MarketDataService {
+    rpc GetMarketData (MarketDataRequest) returns (MarketDataResponse) {}
+}
+
+message MarketDataRequest {
+    string assetPairId = 1;
+}
+
+message MarketDataResponse {
+    string assetPairId = 1;
+}

@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFramework>netcoreapp3.0</TargetFramework>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <Protobuf Include="..\proto\*.proto" GrpcServices="Client" />
+        <Content Include="@(Protobuf)" LinkBase="" />
+    </ItemGroup>
+
+    <Target Name="Protobuf_Compile_Before_AssemblyReferences" BeforeTargets="ResolveAssemblyReferences">
+        <CallTarget Targets="_Protobuf_Compile_BeforeCsCompile" />
+    </Target>
+
+    <ItemGroup>
+        <PackageReference Include="Google.Protobuf" Version="3.7.0" />
+        <PackageReference Include="Grpc.Core" Version="1.19.0-pre1" />
+        <PackageReference Include="Grpc.Tools" Version="1.19.0" PrivateAssets="All" />
+    </ItemGroup>
+
+
+</Project>
