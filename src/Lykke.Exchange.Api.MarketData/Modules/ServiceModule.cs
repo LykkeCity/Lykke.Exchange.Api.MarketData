@@ -1,10 +1,14 @@
 using Autofac;
+using Grpc.Core;
+using JetBrains.Annotations;
 using Lykke.Exchange.Api.MarketData.Services;
 using Lykke.Exchange.Api.MarketData.Settings;
+using Lykke.Sdk;
 using Lykke.SettingsReader;
 
 namespace Lykke.Exchange.Api.MarketData.Modules
 {
+    [UsedImplicitly]
     public class ServiceModule : Module
     {
         private readonly IReloadingManager<AppSettings> _appSettings;
@@ -17,13 +21,24 @@ namespace Lykke.Exchange.Api.MarketData.Modules
         protected override void Load(ContainerBuilder builder)
         {
             builder.RegisterType<StartupManager>()
-                .AsSelf()
+                .As<IStartupManager>()
                 .SingleInstance();
 
             builder.RegisterType<ShutdownManager>()
-                .AsSelf()
+                .As<IShutdownManager>()
                 .AutoActivate()
                 .SingleInstance();
+
+            builder.RegisterInstance(
+                new Server
+                {
+                    Services =
+                    {
+                        MarketDataService.BindService(new MarketDataServiceClient())
+                    },
+                    Ports = { new ServerPort("localhost", 5005, ServerCredentials.Insecure) }
+                }
+            );
         }
     }
 }

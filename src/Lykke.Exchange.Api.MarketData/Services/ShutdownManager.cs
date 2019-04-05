@@ -1,14 +1,24 @@
 using System.Threading.Tasks;
+using Grpc.Core;
 using JetBrains.Annotations;
+using Lykke.Sdk;
 
 namespace Lykke.Exchange.Api.MarketData.Services
 {
     [UsedImplicitly]
-    public class ShutdownManager
+    public class ShutdownManager : IShutdownManager
     {
-        public Task StopAsync()
+        private readonly Server _grpcServer;
+
+        public ShutdownManager(Server grpcServer)
         {
-            return Task.CompletedTask;
+            _grpcServer = grpcServer;
+        }
+        
+        public async Task StopAsync()
+        {
+            await _grpcServer.ShutdownAsync();
+            
         }
     }
 }

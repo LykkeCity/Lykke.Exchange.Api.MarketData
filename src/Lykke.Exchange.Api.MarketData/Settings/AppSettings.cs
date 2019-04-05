@@ -1,13 +1,11 @@
 using JetBrains.Annotations;
-using Lykke.Exchange.Api.MarketData.Settings.SlackNotifications;
+using Lykke.Sdk.Settings;
 
 namespace Lykke.Exchange.Api.MarketData.Settings
 {
     [UsedImplicitly]
-    public class AppSettings
+    public class AppSettings : BaseAppSettings
     {
         public MarketDataSettings MarketDataService { get; set; }
-        public SlackNotificationsSettings SlackNotifications { get; set; }
-        public MonitoringServiceClientSettings MonitoringServiceClient { get; set; }
     }
 }

@@ -1,32 +1,42 @@
 using System;
+using System.IO;
 using System.Threading.Tasks;
-using Autofac.Extensions.DependencyInjection;
 using JetBrains.Annotations;
 using Lykke.Common;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
-using Microsoft.Extensions.Hosting;
 
 namespace Lykke.Exchange.Api.MarketData
 {
     [UsedImplicitly]
     public class Program
     {
+        public static bool IsDebug;
         public static string EnvInfo => Environment.GetEnvironmentVariable("ENV_INFO");
 
-        public static void Main(string[] args)
+        public static async Task Main(string[] args)
         {
-            Console.WriteLine($"{AppEnvironment.Name} version {AppEnvironment.Version}");
 #if DEBUG
-            Console.WriteLine("Is DEBUG");
+            IsDebug = true;
 #else
-            Console.WriteLine("Is RELEASE");
+            IsDebug = false;
 #endif
+            Console.WriteLine($"{AppEnvironment.Name} version {AppEnvironment.Version}");
+            Console.WriteLine(IsDebug ? "DEBUG mode" : "RELEASE mode");
             Console.WriteLine($"ENV_INFO: {EnvInfo}");
 
             try
             {
-                CreateHostBuilder(args).Build().Run();
+                var hostBuilder = new WebHostBuilder()
+                    .UseKestrel()
+                    .UseContentRoot(Directory.GetCurrentDirectory())
+                    .UseStartup<Startup>();
+
+                if (!IsDebug)
+                    hostBuilder = hostBuilder.UseApplicationInsights();
+
+                var host = hostBuilder.Build();
+
+                await host.RunAsync();
             }
             catch (Exception ex)
             {
@@ -49,29 +59,6 @@ namespace Lykke.Exchange.Api.MarketData
             }
 
             Console.WriteLine("Terminated");
-            
         }
-
-        private static IHostBuilder CreateHostBuilder(string[] args) =>
-            Host.CreateDefaultBuilder(args)
-                .ConfigureWebHostDefaults(webBuilder =>
-                {
-                    webBuilder.ConfigureKestrel(options =>
-                        {
-                            options.Limits.MinRequestBodyDataRate = null;
-                            options.ListenLocalhost(5000, listenOptions =>
-                            {
-                                // default for api/isalive
-                            });
-
-                            options.ListenLocalhost(5005, listenOptions =>
-                            {
-                                // for grpc
-                                listenOptions.Protocols = HttpProtocols.Http2;
-                            });
-                        })
-                        .UseStartup<Startup>();
-                })
-                .UseServiceProviderFactory(new AutofacServiceProviderFactory());
     }
 }
