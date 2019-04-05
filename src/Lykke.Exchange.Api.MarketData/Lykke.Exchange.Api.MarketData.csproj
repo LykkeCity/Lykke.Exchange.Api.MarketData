@@ -24,6 +24,10 @@
         <PackageReference Include="Grpc.AspNetCore.Server" Version="0.1.19-pre1" />
         <PackageReference Include="Google.Protobuf" Version="3.7.0" />
         <PackageReference Include="Grpc.Tools" Version="1.19.0" PrivateAssets="All" />
+        <PackageReference Include="Lykke.Common" Version="7.4.0" />
+        <PackageReference Include="Lykke.SettingsReader" Version="5.2.0" />
+        <PackageReference Include="Lykke.Logs" Version="7.2.1" />
+        <PackageReference Include="Lykke.MonitoringServiceApiCaller" Version="1.8.0" />
         <PackageReference Include="Microsoft.AspNetCore.Mvc.NewtonsoftJson" Version="3.0.0-preview3-19153-02" />
     </ItemGroup>
 
