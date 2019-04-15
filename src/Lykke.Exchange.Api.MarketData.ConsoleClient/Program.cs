@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
 
 namespace Lykke.Exchange.Api.MarketData.ConsoleClient
@@ -11,12 +12,14 @@ namespace Lykke.Exchange.Api.MarketData.ConsoleClient
             Console.WriteLine("Starting GRPC Client...");
             Console.WriteLine();
 
-            var channel = new Channel("localhost:5005", SslCredentials.Insecure);
+            var channel = new Channel("localhost:5005", ChannelCredentials.Insecure);
             var client = new MarketDataService.MarketDataServiceClient(channel);
 
             try
             {
-                var response = await client.GetMarketDataAsync(new MarketDataRequest{ AssetPairId = "BTCUSD" });
+                var res = await client.GetMarketDataAsync(new Empty());
+
+                var response = await client.GetAssetPairMarketDataAsync(new MarketDataRequest{ AssetPairId = "BTCUSD" });
 
                 Console.WriteLine("Asset pair: " + response.AssetPairId);
             }

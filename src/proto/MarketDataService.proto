@@ -1,9 +1,12 @@
 syntax = "proto3";
 
+import "google/protobuf/empty.proto";
+
 package Lykke.Exchange.Api.MarketData;
 
 service MarketDataService {
-    rpc GetMarketData (MarketDataRequest) returns (MarketDataResponse) {}
+    rpc GetAssetPairMarketData (MarketDataRequest) returns (MarketSlice) {}
+    rpc GetMarketData (google.protobuf.Empty) returns (MarketDataResponse) {}
 }
 
 message MarketDataRequest {
@@ -11,5 +14,17 @@ message MarketDataRequest {
 }
 
 message MarketDataResponse {
+    repeated MarketSlice items = 1;
+}
+
+message MarketSlice {
     string assetPairId = 1;
+    string volumeBase = 2;
+    string volumeQuote = 3;
+    string priceChange = 4;
+    string lastPrice = 5;
+    string bid = 6;
+    string ask = 7;
+    string high = 8;
+    string low = 9;
 }
