@@ -7,6 +7,8 @@ namespace Lykke.Exchange.Api.MarketData.Settings
     {
         public DbSettings Db { get; set; }
         public RedisSettings Redis { get; set; }
+        public RabbitMqSettings RabbitMq { get; set; }
+        public CqrsSettings Cqrs { get; set; }
         public string MarketProfileUrl { get; set; }
         public string CandlesHistoryUrl { get; set; }
         public string TradesAdapterUrl { get; set; }

@@ -12,6 +12,8 @@ ProjectSection(SolutionItems) = preProject
 	src\proto\MarketDataService.proto = src\proto\MarketDataService.proto
 EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lykke.Exchange.Api.MarketData.Contract", "contract\Lykke.Exchange.Api.MarketData.Contract\Lykke.Exchange.Api.MarketData.Contract.csproj", "{D4198D75-A05A-436E-8B8D-2A2B20317DD4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -49,5 +51,17 @@ Global
 		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|x64.Build.0 = Release|Any CPU
 		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|x86.ActiveCfg = Release|Any CPU
 		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|x86.Build.0 = Release|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|x64.Build.0 = Debug|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|x86.Build.0 = Debug|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Release|x64.ActiveCfg = Release|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Release|x64.Build.0 = Release|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Release|x86.ActiveCfg = Release|Any CPU
+		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

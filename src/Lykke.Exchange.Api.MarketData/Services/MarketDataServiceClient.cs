@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Threading.Tasks;
 using Google.Protobuf.WellKnownTypes;
 using Grpc.Core;
@@ -9,18 +8,27 @@ namespace Lykke.Exchange.Api.MarketData.Services
     [UsedImplicitly]
     public class MarketDataServiceClient : MarketDataService.MarketDataServiceBase
     {
-        public override Task<MarketSlice> GetAssetPairMarketData(MarketDataRequest request, ServerCallContext context)
+        private readonly RedisService _redisService;
+
+        public MarketDataServiceClient(RedisService redisService)
         {
-            return Task.FromResult(new MarketSlice{AssetPairId = request.AssetPairId});
+            _redisService = redisService;
         }
 
-        public override Task<MarketDataResponse> GetMarketData(Empty request, ServerCallContext context)
+        public override async Task<MarketSlice> GetAssetPairMarketData(MarketDataRequest request, ServerCallContext context)
+        {
+            return await _redisService.GetMarketDataAsync(request.AssetPairId);
+        }
+
+        public override async Task<MarketDataResponse> GetMarketData(Empty request, ServerCallContext context)
         {
             var response = new MarketDataResponse();
-            
-            response.Items.Add(new List<MarketSlice>());
 
-            return Task.FromResult(response);
+            var data = await _redisService.GetMarketDataAsync();
+            
+            response.Items.AddRange(data);
+
+            return response;
         }
     }
 }

@@ -2,10 +2,12 @@ using System;
 using Autofac;
 using Grpc.Core;
 using JetBrains.Annotations;
+using Lykke.Common.Log;
+using Lykke.Exchange.Api.MarketData.RabbitMqSubscribers;
 using Lykke.Exchange.Api.MarketData.Services;
 using Lykke.Exchange.Api.MarketData.Settings;
-using Lykke.Logs;
 using Lykke.Sdk;
+using Lykke.Service.Assets.Client;
 using Lykke.Service.CandlesHistory.Client;
 using Lykke.Service.MarketProfile.Client;
 using Lykke.Service.TradesAdapter.Client;
@@ -28,6 +30,7 @@ namespace Lykke.Exchange.Api.MarketData.Modules
         {
             builder.RegisterType<StartupManager>()
                 .As<IStartupManager>()
+                .AutoActivate()
                 .SingleInstance();
 
             builder.RegisterType<ShutdownManager>()
@@ -35,16 +38,16 @@ namespace Lykke.Exchange.Api.MarketData.Modules
                 .AutoActivate()
                 .SingleInstance();
 
-            builder.RegisterInstance(
+            builder.Register(ctx =>
                 new Server
                 {
                     Services =
                     {
-                        MarketDataService.BindService(new MarketDataServiceClient())
+                        MarketDataService.BindService(new MarketDataServiceClient(ctx.Resolve<RedisService>()))
                     },
                     Ports = { new ServerPort("localhost", 5005, ServerCredentials.Insecure) }
                 }
-            );
+            ).SingleInstance();
             
             builder.Register(c =>
                 {
@@ -63,7 +66,28 @@ namespace Lykke.Exchange.Api.MarketData.Modules
                 new Candleshistoryservice(new Uri(_appSettings.CurrentValue.MarketDataService.CandlesHistoryUrl))
             ).As<ICandleshistoryservice>().SingleInstance();
 
-            builder.RegisterTradesAdapterClient(_appSettings.CurrentValue.MarketDataService.TradesAdapterUrl, EmptyLogFactory.Instance.CreateLog(typeof(TradesAdapterClient)));
+            builder.Register(ctx =>
+                new TradesAdapterClient(_appSettings.CurrentValue.MarketDataService.TradesAdapterUrl,
+                    ctx.Resolve<ILogFactory>().CreateLog(typeof(TradesAdapterClient)))
+            ).As<ITradesAdapterClient>().SingleInstance();
+
+            builder.RegisterType<InitService>().AsSelf().SingleInstance();
+
+            builder.RegisterType<QuotesFeedSubscriber>()
+                .WithParameter(new NamedParameter("connectionString", _appSettings.CurrentValue.MarketDataService.RabbitMq.QuotesConnectionString))
+                .WithParameter(new NamedParameter("exchangeName", _appSettings.CurrentValue.MarketDataService.RabbitMq.QuotesExchangeName))
+                .AsSelf()
+                .SingleInstance();
+            
+            builder.RegisterType<LimitOrdersSubscriber>()
+                .WithParameter(new NamedParameter("connectionString", _appSettings.CurrentValue.MarketDataService.RabbitMq.LimitOrdersConnectionString))
+                .WithParameter(new NamedParameter("exchangeName", _appSettings.CurrentValue.MarketDataService.RabbitMq.LimitOrdersExchangeName))
+                .AsSelf()
+                .SingleInstance();
+            
+            builder.RegisterAssetsClient(_appSettings.CurrentValue.AssetsServiceClient);
+
+            builder.RegisterType<RedisService>().SingleInstance();
         }
     }
 }
