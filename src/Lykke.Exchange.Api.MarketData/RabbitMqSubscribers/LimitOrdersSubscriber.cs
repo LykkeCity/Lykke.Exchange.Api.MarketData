@@ -170,6 +170,10 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                                 high = decimal.Parse(highValueTask.Result, CultureInfo.InvariantCulture);
                             }
                         }
+                        else
+                        {
+                            tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.High), price));
+                        }
 
                         if (lowValueTask.Result.HasValue)
                         { 
@@ -181,6 +185,10 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                             {
                                 low = decimal.Parse(lowValueTask.Result, CultureInfo.InvariantCulture);
                             }
+                        }
+                        else
+                        {
+                            tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.Low), price));
                         }
                         
                         var baseVolumesDataTask = _database.SortedSetRangeByScoreAsync(baseVolumeKey, from, now);
