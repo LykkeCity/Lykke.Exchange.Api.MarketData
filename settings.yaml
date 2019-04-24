@@ -28,11 +28,11 @@ MarketDataService:
       settings-key: CqrsRabbitConnString
       types: [ RabbitMq ]
   MarketProfileUrl:
-    setting-key: MarketProfileServiceUrl
+    settings-key: MarketProfileServiceUrl
   CandlesHistoryUrl:
-    setting-key: CandlesHistoryServiceUrl
+    settings-key: CandlesHistoryServiceUrl
   TradesAdapterUrl:
-    setting-key: TradesAdapterServiceUrl
+    settings-key: TradesAdapterServiceUrl
 SlackNotifications:
   AzureQueue:
     ConnectionString:
