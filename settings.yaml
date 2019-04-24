@@ -1,0 +1,48 @@
+MarketDataService:
+  Db:
+    LogsConnString:
+      settings-key: MarketDataService-LogsConnString
+      types: [ AzureTableStorage ]
+  Redis:
+    Configuration:
+      settings-key: RedisConfiguration
+      types: [ Redis ]  
+  RabbitMq:
+    QuotesConnectionString:
+      settings-key: MarketDataService-QuotesConnectionString
+      types: [ RabbitMq ]
+    QuotesExchangeName:
+      settings-key: MarketDataService-QuotesExchangeName
+    CandlesConnectionString:
+      settings-key: MarketDataService-CandlesConnectionString
+      types: [ RabbitMq ]
+    CandlesExchangeName:
+      settings-key: MarketDataService-CandlesExchangeName
+    LimitOrdersConnectionString:
+      settings-key: MarketDataService-LimitOrdersConnectionString
+      types: [ RabbitMq ]
+    LimitOrdersExchangeName:
+      settings-key: MarketDataService-LimitOrdersExchangeName
+  Cqrs:
+    ConnectionString:
+      settings-key: CqrsRabbitConnString
+      types: [ RabbitMq ]
+  MarketProfileUrl:
+    setting-key: MarketProfileServiceUrl
+  CandlesHistoryUrl:
+    setting-key: CandlesHistoryServiceUrl
+  TradesAdapterUrl:
+    setting-key: TradesAdapterServiceUrl
+SlackNotifications:
+  AzureQueue:
+    ConnectionString:
+      settings-key: SlackNotificationsConnString
+      types: [ AzureTableStorage ]
+    QueueName:
+      settings-key: SlackQueueName
+MonitoringServiceClient:
+  MonitoringServiceUrl:
+    settings-key: MonitoringServiceUrl
+AssetsServiceClient:
+  ServiceUrl:
+    settings-key: AssetsServiceUrl

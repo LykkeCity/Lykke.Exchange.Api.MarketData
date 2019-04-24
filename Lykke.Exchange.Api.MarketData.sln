@@ -10,6 +10,7 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionItems", "{53727A06-DCA6-48D5-A9E4-078CD34440FB}"
 ProjectSection(SolutionItems) = preProject
 	src\proto\MarketDataService.proto = src\proto\MarketDataService.proto
+	settings.yaml = settings.yaml
 EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lykke.Exchange.Api.MarketData.Contract", "contract\Lykke.Exchange.Api.MarketData.Contract\Lykke.Exchange.Api.MarketData.Contract.csproj", "{D4198D75-A05A-436E-8B8D-2A2B20317DD4}"
