@@ -47,24 +47,31 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             foreach (var baseVolumeData in baseVolumesDataTask.Result)
             {
-                if (baseVolumeData.HasValue && decimal.TryParse(baseVolumeData, out var baseVol))
-                {
-                    baseVolume += baseVol;
-                }
+                if (!baseVolumeData.HasValue)
+                    continue;
+                            
+                decimal baseVol = RedisExtensions.DeserializeTimestamped<decimal>(baseVolumeData);
+                baseVolume += baseVol;
             }
             
             foreach (var quoteVolumeData in quoteVolumesDataTask.Result)
             {
-                if (quoteVolumeData.HasValue && decimal.TryParse(quoteVolumeData, out var quoteVol))
-                {
-                    quoteVolume += quoteVol;
-                }
+                if (!quoteVolumeData.HasValue)
+                    continue;
+
+                decimal quoteVol = RedisExtensions.DeserializeTimestamped<decimal>(quoteVolumeData);
+                quoteVolume += quoteVol;
             }
 
-            if (priceDataTask.Result.Any() && decimal.TryParse(priceDataTask.Result[0], out decimal price))
+            if (priceDataTask.Result.Any() && priceDataTask.Result[0].HasValue)
             {
-                decimal priceChange = (decimal.Parse(marketSlice.LastPrice, CultureInfo.InvariantCulture) - price) / price;
-                marketSlice.PriceChange = priceChange.ToString(CultureInfo.InvariantCulture);
+                decimal price = RedisExtensions.DeserializeTimestamped<decimal>(priceDataTask.Result[0]);
+
+                if (price > 0)
+                {
+                    decimal priceChange = (decimal.Parse(marketSlice.LastPrice, CultureInfo.InvariantCulture) - price) / price;
+                    marketSlice.PriceChange = priceChange.ToString(CultureInfo.InvariantCulture);
+                }
             }
 
             marketSlice.VolumeBase = baseVolume.ToString(CultureInfo.InvariantCulture);

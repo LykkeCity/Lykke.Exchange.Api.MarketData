@@ -50,14 +50,15 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
         private async Task SaveMarketDataAsync(List<MarketSlice> marketData, Dictionary<string,IList<Candle>> prices)
         {
-            var now = DateTime.UtcNow.ToUnixTime();
+            var nowDate = DateTime.UtcNow;
+            var now = nowDate.ToUnixTime();
             var tasks = new List<Task>();
 
             var pricesValue = new Dictionary<string, SortedSetEntry[]>();
 
             foreach (var price in prices)
             {
-                pricesValue.Add(price.Key, price.Value.Select(x => new SortedSetEntry(x.Open.ToString(CultureInfo.InvariantCulture), x.DateTime.ToUnixTime())).ToArray());
+                pricesValue.Add(price.Key, price.Value.Select(x => new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal)x.Open, x.DateTime), x.DateTime.ToUnixTime())).ToArray());
             }
 
             foreach (MarketSlice marketSlice in marketData)
@@ -72,10 +73,10 @@ namespace Lykke.Exchange.Api.MarketData.Services
                 tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(quoteVolumeKey, 0, now - 1, Exclude.None, CommandFlags.FireAndForget));
                 
                 if (!string.IsNullOrEmpty(marketSlice.VolumeBase))
-                    tasks.Add(_database.SortedSetAddAsync(baseVolumeKey,  marketSlice.VolumeBase, now));
+                    tasks.Add(_database.SortedSetAddAsync(baseVolumeKey, RedisExtensions.SerializeWithTimestamp(decimal.Parse(marketSlice.VolumeBase, CultureInfo.InvariantCulture), nowDate), now));
                 
                 if (!string.IsNullOrEmpty(marketSlice.VolumeQuote))
-                    tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, marketSlice.VolumeQuote, now));
+                    tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(decimal.Parse(marketSlice.VolumeQuote, CultureInfo.InvariantCulture), nowDate), now));
                 
                 await Task.WhenAll(tasks);
                 tasks.Clear();

@@ -1,5 +1,8 @@
+using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using StackExchange.Redis;
 
 namespace Lykke.Exchange.Api.MarketData.Extensions
@@ -67,6 +70,41 @@ namespace Lykke.Exchange.Api.MarketData.Extensions
                 marketSlice.Low = low;
 
             return marketSlice;
+        }
+        
+        public static byte[] SerializeWithTimestamp<T>(T data, DateTime date)
+        {
+            // result is: 
+            // 0 .. TimestampFormat.Length - 1 bytes: timestamp as yyyyMMddHHmmss in ASCII
+            // TimestampFormat.Length .. end bytes: serialized data
+
+            var timestampString = date.ToString("yyyyMMddHHmmss");
+            var timestampBytes = Encoding.ASCII.GetBytes(timestampString);
+
+            using (var stream = new MemoryStream())
+            {
+                stream.Write(timestampBytes, 0, timestampBytes.Length);
+
+                MessagePack.MessagePackSerializer.Serialize(stream, data);
+
+                stream.Flush();
+
+                return stream.ToArray();
+            }
+        }
+        
+        public static T DeserializeTimestamped<T>(byte[] value)
+        {
+            // value is: 
+            // 0 .. TimestampFormat.Length - 1 bytes: timestamp as yyyyMMddHHmmss in ASCII
+            // TimestampFormat.Length .. end bytes: serialized data
+
+            var timestampLength = "yyyyMMddHHmmss".Length;
+
+            using (var stream = new MemoryStream(value, timestampLength, value.Length - timestampLength, writable: false))
+            {
+                return MessagePack.MessagePackSerializer.Deserialize<T>(stream);
+            }
         }
     }
 }
