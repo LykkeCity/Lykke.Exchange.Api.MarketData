@@ -15,9 +15,9 @@ namespace Lykke.Exchange.Api.MarketData.Services
             _redisService = redisService;
         }
 
-        public override async Task<MarketSlice> GetAssetPairMarketData(MarketDataRequest request, ServerCallContext context)
+        public override Task<MarketSlice> GetAssetPairMarketData(MarketDataRequest request, ServerCallContext context)
         {
-            return await _redisService.GetMarketDataAsync(request.AssetPairId);
+            return _redisService.GetMarketDataAsync(request.AssetPairId);
         }
 
         public override async Task<MarketDataResponse> GetMarketData(Empty request, ServerCallContext context)

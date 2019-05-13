@@ -99,9 +99,12 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                 string assetPairId = orderMessage.Order.AssetPairId;
 
                 AssetPair assetPair = _assetPairsRepository.TryGet(assetPairId);
-                
+
                 if (assetPair == null)
+                {
+                    _log.Error($"Asset pair {assetPairId} not found");
                     continue;
+                }
                 
                 foreach (var tradeMessage in orderMessage.Trades.OrderBy(t => t.Timestamp).ThenBy(t => t.Index))
                 {

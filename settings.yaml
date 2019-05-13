@@ -33,6 +33,8 @@ MarketDataService:
     settings-key: CandlesHistoryServiceUrl
   TradesAdapterUrl:
     settings-key: TradesAdapterServiceUrl
+  GrpcPort:
+    settings-key: MarketDataService-GrpcPort
 SlackNotifications:
   AzureQueue:
     ConnectionString:

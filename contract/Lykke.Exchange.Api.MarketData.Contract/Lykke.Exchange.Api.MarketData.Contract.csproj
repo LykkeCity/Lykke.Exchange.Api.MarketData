@@ -5,4 +5,9 @@
         <Version>1.0.0</Version>
     </PropertyGroup>
 
+  <ItemGroup>
+    <Protobuf Include="..\..\src\proto\*.proto" GrpcServices="Client" />
+    <Content Include="@(Protobuf)" LinkBase="" />
+  </ItemGroup>
+
 </Project>

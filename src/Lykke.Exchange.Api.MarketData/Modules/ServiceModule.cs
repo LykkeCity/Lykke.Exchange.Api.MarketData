@@ -45,7 +45,7 @@ namespace Lykke.Exchange.Api.MarketData.Modules
                     {
                         MarketDataService.BindService(new MarketDataServiceClient(ctx.Resolve<RedisService>()))
                     },
-                    Ports = { new ServerPort("localhost", 5005, ServerCredentials.Insecure) }
+                    Ports = { new ServerPort("0.0.0.0", _appSettings.CurrentValue.MarketDataService.GrpcPort, ServerCredentials.Insecure) }
                 }
             ).SingleInstance();
             
