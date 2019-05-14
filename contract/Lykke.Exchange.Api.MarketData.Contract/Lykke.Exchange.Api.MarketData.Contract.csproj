@@ -1,0 +1,13 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <Version>1.0.0</Version>
+    </PropertyGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\src\proto\*.proto" GrpcServices="Client" />
+    <Content Include="@(Protobuf)" LinkBase="" />
+  </ItemGroup>
+
+</Project>
