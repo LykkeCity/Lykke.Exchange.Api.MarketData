@@ -4,6 +4,7 @@ using JetBrains.Annotations;
 using Lykke.Common.Log;
 using Lykke.Cqrs;
 using Lykke.Cqrs.Configuration;
+using Lykke.Cqrs.Middleware.Logging;
 using Lykke.Exchange.Api.MarketData.Contract;
 using Lykke.Exchange.Api.MarketData.Settings;
 using Lykke.Messaging;
@@ -54,14 +55,17 @@ namespace Lykke.Exchange.Api.MarketData.Modules
                         environment: "lykke",
                         exclusiveQueuePostfix: "marketdata")),
 
-                Register.BoundedContext(MarketDataBoundedContext.Name)
-                    .WithAssetsReadModel(route: System.Environment.MachineName)
-                    .PublishingEvents(
-                        typeof(MarketDataChangedEvent)
-                    )
-                    .With("events")
+                    Register.CommandInterceptors(new DefaultCommandLoggingInterceptor(logFactory)),
+                    Register.EventInterceptors(new DefaultEventLoggingInterceptor(logFactory)),
+
+                    Register.BoundedContext(MarketDataBoundedContext.Name)
+                        .WithAssetsReadModel(route: System.Environment.MachineName)
+                        .PublishingEvents(
+                            typeof(MarketDataChangedEvent)
+                        )
+                        .With("events")
                 );
-                
+
                 engine.StartPublishers();
                 return engine;
             })
