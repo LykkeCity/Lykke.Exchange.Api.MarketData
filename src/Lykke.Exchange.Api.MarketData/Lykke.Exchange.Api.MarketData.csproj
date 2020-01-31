@@ -14,8 +14,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Protobuf Include="..\proto\*.proto" GrpcServices="Server" />
-        <Content Include="@(Protobuf)" LinkBase="" />
+        <Protobuf Include="..\..\proto\MarketDataService.proto" GrpcServices="Server" />
     </ItemGroup>
 
     <Target Name="Protobuf_Compile_Before_AssemblyReferences" BeforeTargets="ResolveAssemblyReferences">
