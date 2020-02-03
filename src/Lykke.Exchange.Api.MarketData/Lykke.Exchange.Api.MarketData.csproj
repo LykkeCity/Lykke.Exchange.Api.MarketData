@@ -24,6 +24,7 @@
     <ItemGroup>
         <PackageReference Include="Google.Protobuf" Version="3.11.2" />
         <PackageReference Include="Grpc.Core" Version="2.26.0" />
+        <PackageReference Include="Grpc.Reflection" Version="2.26.0" />
         <PackageReference Include="Grpc.Tools" Version="2.26.0" PrivateAssets="All" />
         <PackageReference Include="Lykke.Cqrs" Version="9.0.1" />
         <PackageReference Include="Lykke.Common" Version="7.5.0" />

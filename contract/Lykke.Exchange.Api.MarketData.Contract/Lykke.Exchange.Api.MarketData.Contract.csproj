@@ -6,7 +6,8 @@
     </PropertyGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\proto\MarketDataService.proto" GrpcServices="Client" />
+    <Protobuf Include="..\..\proto\*.proto" GrpcServices="Client" />
+    <Content Include="@(Protobuf)" LinkBase="" />
   </ItemGroup>
 
 </Project>

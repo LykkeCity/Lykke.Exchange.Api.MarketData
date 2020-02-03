@@ -1,6 +1,8 @@
 using System;
 using Autofac;
 using Grpc.Core;
+using Grpc.Reflection;
+using Grpc.Reflection.V1Alpha;
 using JetBrains.Annotations;
 using Lykke.Common.Log;
 using Lykke.Exchange.Api.MarketData.RabbitMqSubscribers;
@@ -39,19 +41,30 @@ namespace Lykke.Exchange.Api.MarketData.Modules
                 .SingleInstance();
 
             builder.Register(ctx =>
-                new Server
                 {
-                    Services =
-                    {
-                        MarketDataService.BindService(new MarketDataServiceClient(ctx.Resolve<RedisService>()))
-                    },
-                    Ports = { new ServerPort("0.0.0.0", _appSettings.CurrentValue.MarketDataService.GrpcPort, ServerCredentials.Insecure) }
+                    var reflectionServiceImpl = new ReflectionServiceImpl(
+                        MarketDataService.Descriptor
+                    );
+                    return new Server
+                        {
+                            Services =
+                                {
+                                    MarketDataService.BindService(
+                                        new MarketDataServiceClient(ctx.Resolve<RedisService>())),
+                                    ServerReflection.BindService(reflectionServiceImpl)
+                                },
+                            Ports =
+                                {
+                                    new ServerPort("0.0.0.0", _appSettings.CurrentValue.MarketDataService.GrpcPort,
+                                        ServerCredentials.Insecure)
+                                }
+                        };
                 }
             ).SingleInstance();
-            
+
             builder.Register(c =>
                 {
-                    var lazy = new Lazy<ConnectionMultiplexer>(() => ConnectionMultiplexer.Connect(_appSettings.CurrentValue.MarketDataService.Redis.Configuration)); 
+                    var lazy = new Lazy<ConnectionMultiplexer>(() => ConnectionMultiplexer.Connect(_appSettings.CurrentValue.MarketDataService.Redis.Configuration));
                     return lazy.Value;
                 })
                 .As<IConnectionMultiplexer>()
@@ -59,7 +72,7 @@ namespace Lykke.Exchange.Api.MarketData.Modules
 
             builder.Register(c => c.Resolve<IConnectionMultiplexer>().GetDatabase())
                 .As<IDatabase>();
-            
+
             builder.RegisterMarketProfileClient(_appSettings.CurrentValue.MarketDataService.MarketProfileUrl);
 
             builder.RegisterInstance(
@@ -78,13 +91,13 @@ namespace Lykke.Exchange.Api.MarketData.Modules
                 .WithParameter(new NamedParameter("exchangeName", _appSettings.CurrentValue.MarketDataService.RabbitMq.QuotesExchangeName))
                 .AsSelf()
                 .SingleInstance();
-            
+
             builder.RegisterType<LimitOrdersSubscriber>()
                 .WithParameter(new NamedParameter("connectionString", _appSettings.CurrentValue.MarketDataService.RabbitMq.LimitOrdersConnectionString))
                 .WithParameter(new NamedParameter("exchangeName", _appSettings.CurrentValue.MarketDataService.RabbitMq.LimitOrdersExchangeName))
                 .AsSelf()
                 .SingleInstance();
-            
+
             builder.RegisterAssetsClient(_appSettings.CurrentValue.AssetsServiceClient);
 
             builder.RegisterType<RedisService>().SingleInstance();
