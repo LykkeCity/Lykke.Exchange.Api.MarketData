@@ -6,14 +6,18 @@
     </PropertyGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\proto\*.proto" GrpcServices="Client" AdditionalImportDirs="proto\" />
-    <Content Include="../../proto/MarketDataService.proto">
-      <GrpcServices>Client</GrpcServices>
-      <AdditionalImportDirs>proto\</AdditionalImportDirs>
-      <LinkBase></LinkBase>
+    <PackageReference Include="Grpc.Core" Version="2.26.0" />
+    <PackageReference Include="Grpc.Reflection" Version="2.26.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.26.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\proto\MarketDataService.proto">
       <Link>MarketDataService.proto</Link>
-      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-    </Content>
+    </Protobuf>
   </ItemGroup>
 
 </Project>
