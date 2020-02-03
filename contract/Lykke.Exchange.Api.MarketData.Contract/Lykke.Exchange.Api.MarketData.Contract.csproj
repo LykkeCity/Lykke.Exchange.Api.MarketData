@@ -6,8 +6,14 @@
     </PropertyGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\proto\*.proto" GrpcServices="Client" />
-    <Content Include="@(Protobuf)" LinkBase="" />
+    <Protobuf Include="..\..\proto\*.proto" GrpcServices="Client" AdditionalImportDirs="proto\" />
+    <Content Include="../../proto/MarketDataService.proto">
+      <GrpcServices>Client</GrpcServices>
+      <AdditionalImportDirs>proto\</AdditionalImportDirs>
+      <LinkBase></LinkBase>
+      <Link>MarketDataService.proto</Link>
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
 
 </Project>
