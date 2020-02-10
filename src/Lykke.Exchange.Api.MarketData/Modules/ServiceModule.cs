@@ -4,7 +4,6 @@ using Grpc.Core;
 using Grpc.Reflection;
 using Grpc.Reflection.V1Alpha;
 using JetBrains.Annotations;
-using Lykke.Common.Log;
 using Lykke.Exchange.Api.MarketData.RabbitMqSubscribers;
 using Lykke.Exchange.Api.MarketData.Services;
 using Lykke.Exchange.Api.MarketData.Settings;
@@ -12,7 +11,6 @@ using Lykke.Sdk;
 using Lykke.Service.Assets.Client;
 using Lykke.Service.CandlesHistory.Client;
 using Lykke.Service.MarketProfile.Client;
-using Lykke.Service.TradesAdapter.Client;
 using Lykke.SettingsReader;
 using StackExchange.Redis;
 
@@ -78,11 +76,6 @@ namespace Lykke.Exchange.Api.MarketData.Modules
             builder.RegisterInstance(
                 new Candleshistoryservice(new Uri(_appSettings.CurrentValue.MarketDataService.CandlesHistoryUrl))
             ).As<ICandleshistoryservice>().SingleInstance();
-
-            builder.Register(ctx =>
-                new TradesAdapterClient(_appSettings.CurrentValue.MarketDataService.TradesAdapterUrl,
-                    ctx.Resolve<ILogFactory>().CreateLog(typeof(TradesAdapterClient)))
-            ).As<ITradesAdapterClient>().SingleInstance();
 
             builder.RegisterType<InitService>().AsSelf().SingleInstance();
 

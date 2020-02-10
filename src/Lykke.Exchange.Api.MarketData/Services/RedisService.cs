@@ -85,7 +85,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
             var result = new List<MarketSlice>();
             var sw = new Stopwatch();
             sw.Start();
-            List<string> assetPairs = await GetAssetPairs();
+            List<string> assetPairs = await GetAssetPairsAsync();
             sw.Stop();
 
             Console.WriteLine($"get all asset pairs = {sw.ElapsedMilliseconds} msec");
@@ -108,7 +108,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
             return result;
         }
 
-        private async Task<List<string>> GetAssetPairs()
+        private async Task<List<string>> GetAssetPairsAsync()
         {
             var assetPairs = await _database.SortedSetRangeByScoreAsync(GetAssetPairsKey(), 0, 0);
             return assetPairs.Select(assetPair => (string) assetPair).ToList();

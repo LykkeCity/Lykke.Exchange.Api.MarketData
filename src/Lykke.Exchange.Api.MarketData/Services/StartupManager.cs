@@ -29,7 +29,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
             _quotesFeedSubscriber = quotesFeedSubscriber;
             _limitOrdersSubscriber = limitOrdersSubscriber;
         }
-        
+
         public async Task StartAsync()
         {
             var sw = new Stopwatch();
@@ -37,7 +37,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
             sw.Start();
             await _initService.LoadAsync();
             sw.Stop();
-            Console.WriteLine($"Init finished [{sw.ElapsedMilliseconds} msec.]");
+            Console.WriteLine($"Init finished {sw.ElapsedMilliseconds} msec. [{sw.Elapsed}]");
             _quotesFeedSubscriber.Start();
             _limitOrdersSubscriber.Start();
             _grpcServer.Start();

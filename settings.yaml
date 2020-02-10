@@ -6,7 +6,7 @@ MarketDataService:
   Redis:
     Configuration:
       settings-key: RedisConfiguration
-      types: [ Redis ]  
+      types: [ Redis ]
   RabbitMq:
     QuotesConnectionString:
       settings-key: MarketDataService-QuotesConnectionString
@@ -31,8 +31,6 @@ MarketDataService:
     settings-key: MarketProfileServiceUrl
   CandlesHistoryUrl:
     settings-key: CandlesHistoryServiceUrl
-  TradesAdapterUrl:
-    settings-key: TradesAdapterServiceUrl
   GrpcPort:
     settings-key: MarketDataService-GrpcPort
 SlackNotifications:

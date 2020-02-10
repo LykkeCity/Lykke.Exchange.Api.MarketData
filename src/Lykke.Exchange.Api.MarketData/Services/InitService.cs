@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -8,7 +9,6 @@ using Lykke.Exchange.Api.MarketData.Extensions;
 using Lykke.Service.CandlesHistory.Client;
 using Lykke.Service.CandlesHistory.Client.Models;
 using Lykke.Service.MarketProfile.Client;
-using Lykke.Service.TradesAdapter.Client;
 using StackExchange.Redis;
 
 namespace Lykke.Exchange.Api.MarketData.Services
@@ -18,44 +18,56 @@ namespace Lykke.Exchange.Api.MarketData.Services
         private readonly IDatabase _database;
         private readonly ILykkeMarketProfile _marketProfileClient;
         private readonly ICandleshistoryservice _candlesHistoryClient;
-        private readonly ITradesAdapterClient _tradesAdapterClient;
 
         public InitService(
             IDatabase database,
             ILykkeMarketProfile marketProfileClient,
-            ICandleshistoryservice candlesHistoryClient,
-            ITradesAdapterClient tradesAdapterClient
-            )
+            ICandleshistoryservice candlesHistoryClient
+        )
         {
             _database = database;
             _marketProfileClient = marketProfileClient;
             _candlesHistoryClient = candlesHistoryClient;
-            _tradesAdapterClient = tradesAdapterClient;
         }
 
         public async Task LoadAsync()
         {
-            var marketDataTask = GetMarketProfilesAsync();
-            var todayCandlesTask = GetCandlesAsync();
+            var now = DateTime.UtcNow;
 
-            await Task.WhenAll(marketDataTask, todayCandlesTask);
+            var assetPairsTask = _candlesHistoryClient.GetAvailableAssetPairsAsync();
+            var marketDataTask = GetMarketProfilesAsync();
+
+            await Task.WhenAll(assetPairsTask, marketDataTask);
+
+            var todayCandlesTask = GetCandlesAsync(now - TimeSpan.FromHours(24), now.AddMinutes(5),
+                assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Min5);
+            var lastMonthCandlesTask = GetCandlesAsync(now.AddYears(-1) - TimeSpan.FromHours(24), now.AddMonths(1),
+                assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Month);
+
+            await Task.WhenAll(todayCandlesTask, lastMonthCandlesTask);
 
             var marketData = marketDataTask.Result;
             var todayCandles = todayCandlesTask.Result;
+            var lastMonthCandles = lastMonthCandlesTask.Result;
 
             foreach (var todayCandle in todayCandles)
             {
                 UpdateCandlesInfo(todayCandle.Key, todayCandle.Value, marketData);
             }
 
-            await Task.WhenAll(
-                UpdateLastPricesAsync(marketData),
-                SaveMarketDataAsync(marketData, todayCandles)
-            );
+            foreach (var lastMonthCandle in lastMonthCandles)
+            {
+                UpdateLastPrice(lastMonthCandle.Key, lastMonthCandle.Value, marketData);
+            }
+
+            await SaveMarketDataAsync(marketData, todayCandles);
         }
 
-        private async Task SaveMarketDataAsync(List<MarketSlice> marketData, Dictionary<string,IList<Candle>> prices)
+        private async Task SaveMarketDataAsync(List<MarketSlice> marketData, Dictionary<string, IList<Candle>> prices)
         {
+            var sw = new Stopwatch();
+            Console.WriteLine("Saving data to redis...");
+            sw.Start();
             var nowDate = DateTime.UtcNow;
             var now = nowDate.ToUnixTime();
             var tasks = new List<Task>();
@@ -64,25 +76,35 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             foreach (var price in prices)
             {
-                pricesValue.Add(price.Key, price.Value.Select(x => new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal)x.Open, x.DateTime), x.DateTime.ToUnixTime())).ToArray());
+                pricesValue.Add(price.Key,
+                    price.Value.Select(x =>
+                        new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.Open, x.DateTime),
+                            x.DateTime.ToUnixTime())).ToArray());
             }
 
             foreach (MarketSlice marketSlice in marketData)
             {
-                tasks.Add(_database.HashSetAsync(RedisService.GetMarketDataKey(marketSlice.AssetPairId), marketSlice.ToMarketSliceHash()));
+                tasks.Add(_database.HashSetAsync(RedisService.GetMarketDataKey(marketSlice.AssetPairId),
+                    marketSlice.ToMarketSliceHash()));
                 tasks.Add(_database.SortedSetAddAsync(RedisService.GetAssetPairsKey(), marketSlice.AssetPairId, 0));
 
                 string baseVolumeKey = RedisService.GetMarketDataBaseVolumeKey(marketSlice.AssetPairId);
                 string quoteVolumeKey = RedisService.GetMarketDataQuoteVolumeKey(marketSlice.AssetPairId);
 
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(baseVolumeKey, 0, now - 1, Exclude.None, CommandFlags.FireAndForget));
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(quoteVolumeKey, 0, now - 1, Exclude.None, CommandFlags.FireAndForget));
+                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(baseVolumeKey, 0, now - 1, Exclude.None,
+                    CommandFlags.FireAndForget));
+                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(quoteVolumeKey, 0, now - 1, Exclude.None,
+                    CommandFlags.FireAndForget));
 
                 if (!string.IsNullOrEmpty(marketSlice.VolumeBase))
-                    tasks.Add(_database.SortedSetAddAsync(baseVolumeKey, RedisExtensions.SerializeWithTimestamp(decimal.Parse(marketSlice.VolumeBase, CultureInfo.InvariantCulture), nowDate), now));
+                    tasks.Add(_database.SortedSetAddAsync(baseVolumeKey,
+                        RedisExtensions.SerializeWithTimestamp(
+                            decimal.Parse(marketSlice.VolumeBase, CultureInfo.InvariantCulture), nowDate), now));
 
                 if (!string.IsNullOrEmpty(marketSlice.VolumeQuote))
-                    tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(decimal.Parse(marketSlice.VolumeQuote, CultureInfo.InvariantCulture), nowDate), now));
+                    tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey,
+                        RedisExtensions.SerializeWithTimestamp(
+                            decimal.Parse(marketSlice.VolumeQuote, CultureInfo.InvariantCulture), nowDate), now));
 
                 await Task.WhenAll(tasks);
                 tasks.Clear();
@@ -96,6 +118,9 @@ namespace Lykke.Exchange.Api.MarketData.Services
             }
 
             await Task.WhenAll(tasks);
+            sw.Stop();
+
+            Console.WriteLine($"Saved data to redis [{sw.Elapsed}]");
         }
 
         private void UpdateCandlesInfo(string assetPairId, IList<Candle> candles, List<MarketSlice> marketData)
@@ -131,15 +156,14 @@ namespace Lykke.Exchange.Api.MarketData.Services
             }
         }
 
-        private async Task UpdateLastPricesAsync(List<MarketSlice> marketData)
+        private void UpdateLastPrice(string assetPairId, IList<Candle> candles, List<MarketSlice> marketData)
         {
-            foreach (var marketSlice in marketData)
-            {
-                // it's OK to call it multiple times on init for now
-                double? lastPrice = await GetLastPriceAsync(marketSlice.AssetPairId);
+            var lastCandle = candles.LastOrDefault();
+            var existingRecord = marketData.FirstOrDefault(x => x.AssetPairId == assetPairId);
 
-                if (lastPrice != null)
-                    marketSlice.LastPrice = lastPrice.Value.ToString(CultureInfo.InvariantCulture);
+            if (lastCandle != null && existingRecord != null)
+            {
+                existingRecord.LastPrice = lastCandle.Close.ToString(CultureInfo.InvariantCulture);
             }
         }
 
@@ -160,19 +184,13 @@ namespace Lykke.Exchange.Api.MarketData.Services
             return marketData;
         }
 
-        private async Task<Dictionary<string, IList<Candle>>> GetCandlesAsync()
+        private async Task<Dictionary<string, IList<Candle>>> GetCandlesAsync(DateTime from, DateTime to,
+            IList<string> assetPairs, CandlePriceType priceType, CandleTimeInterval interval)
         {
             var todayCandles = new Dictionary<string, IList<Candle>>();
 
-            var now = DateTime.UtcNow;
-            // inclusive
-            var from = now - TimeSpan.FromHours(24);
-            // exclusive
-            var to = now.AddMinutes(5);
-
-            var assetPairs = await _candlesHistoryClient.GetAvailableAssetPairsAsync();
             var todayCandleHistoryForPairs = await _candlesHistoryClient.GetCandlesHistoryBatchAsync(assetPairs,
-                CandlePriceType.Trades, CandleTimeInterval.Min5, from, to);
+                priceType, interval, from, to);
 
             if (todayCandleHistoryForPairs == null) // Some technical issue has happened without an exception.
                 throw new InvalidOperationException("Could not obtain today's Min5 trade candles at all.");
@@ -190,18 +208,6 @@ namespace Lykke.Exchange.Api.MarketData.Services
             }
 
             return todayCandles;
-        }
-
-        private async Task<double?> GetLastPriceAsync(string assetPairId)
-        {
-            var tradesResponse = await _tradesAdapterClient.GetTradesByAssetPairIdAsync(assetPairId, 0, 1);
-
-            if (tradesResponse?.Records != null && tradesResponse.Records.Any())
-            {
-                return tradesResponse.Records.First().Price;
-            }
-
-            return null;
         }
     }
 }
