@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -19,7 +20,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
         {
             _database = database;
         }
-        
+
         public static string GetMarketDataKey(string assetPairId) => $"MarketData:Slice:{assetPairId}";
         public static string GetAssetPairsKey() => "MarketData:AssetPairs";
         public static string GetMarketDataBaseVolumeKey(string assetPairId) => $"MarketData:BaseVolume:{assetPairId}";
@@ -29,9 +30,8 @@ namespace Lykke.Exchange.Api.MarketData.Services
         public async Task<MarketSlice> GetMarketDataAsync(string assetPair)
         {
             var data = await _database.HashGetAllAsync(GetMarketDataKey(assetPair));
-
             var marketSlice = data?.ToMarketSlice() ?? new MarketSlice {AssetPairId = assetPair};
-            
+
             var nowDate = DateTime.UtcNow;
             var now = nowDate.ToUnixTime();
             var from = (nowDate - TimeSpan.FromHours(24)).ToUnixTime();
@@ -49,11 +49,11 @@ namespace Lykke.Exchange.Api.MarketData.Services
             {
                 if (!baseVolumeData.HasValue)
                     continue;
-                            
+
                 decimal baseVol = RedisExtensions.DeserializeTimestamped<decimal>(baseVolumeData);
                 baseVolume += baseVol;
             }
-            
+
             foreach (var quoteVolumeData in quoteVolumesDataTask.Result)
             {
                 if (!quoteVolumeData.HasValue)
@@ -83,17 +83,31 @@ namespace Lykke.Exchange.Api.MarketData.Services
         public async Task<List<MarketSlice>> GetMarketDataAsync()
         {
             var result = new List<MarketSlice>();
+            var sw = new Stopwatch();
+            sw.Start();
             List<string> assetPairs = await GetAssetPairs();
+            sw.Stop();
+
+            Console.WriteLine($"get all asset pairs = {sw.ElapsedMilliseconds} msec");
+            sw.Restart();
+
+            var tasks = new List<Task<MarketSlice>>();
 
             foreach (string assetPair in assetPairs)
             {
-                var marketSlice = await GetMarketDataAsync(assetPair);
-                result.Add(marketSlice);
+                tasks.Add(GetMarketDataAsync(assetPair));
             }
+
+            await Task.WhenAll(tasks);
+
+            result.AddRange(tasks.Select(x => x.Result));
+
+            sw.Stop();
+            Console.WriteLine($"get market slices: {sw.ElapsedMilliseconds} msec. [{sw.Elapsed}]");
 
             return result;
         }
-        
+
         private async Task<List<string>> GetAssetPairs()
         {
             var assetPairs = await _database.SortedSetRangeByScoreAsync(GetAssetPairsKey(), 0, 0);
