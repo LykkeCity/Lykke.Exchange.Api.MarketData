@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -83,13 +82,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
         public async Task<List<MarketSlice>> GetMarketDataAsync()
         {
             var result = new List<MarketSlice>();
-            var sw = new Stopwatch();
-            sw.Start();
             List<string> assetPairs = await GetAssetPairsAsync();
-            sw.Stop();
-
-            Console.WriteLine($"get all asset pairs = {sw.ElapsedMilliseconds} msec");
-            sw.Restart();
 
             var tasks = new List<Task<MarketSlice>>();
 
@@ -101,9 +94,6 @@ namespace Lykke.Exchange.Api.MarketData.Services
             await Task.WhenAll(tasks);
 
             result.AddRange(tasks.Select(x => x.Result));
-
-            sw.Stop();
-            Console.WriteLine($"get market slices: {sw.ElapsedMilliseconds} msec. [{sw.Elapsed}]");
 
             return result;
         }

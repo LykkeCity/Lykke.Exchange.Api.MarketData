@@ -106,8 +106,13 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                     continue;
                 }
 
+                List<LimitOrdersMessage.Trade> allTrades = message.Orders.SelectMany(x => x.Trades).ToList();
+
                 foreach (var tradeMessage in orderMessage.Trades.OrderBy(t => t.Timestamp).ThenBy(t => t.Index))
                 {
+                    long maxIndex = allTrades
+                        .Where(x => x.OppositeOrderId == tradeMessage.OppositeOrderId)
+                        .Max(t => t.Index);
                     string marketDataKey = RedisService.GetMarketDataKey(assetPairId);
                     string price = ((decimal)tradeMessage.Price).ToString(CultureInfo.InvariantCulture);
 
@@ -258,7 +263,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         await Task.WhenAll(tasks);
 
                         //send event only for the last trade in the order
-                        if (tradeMessage.Index == orderMessage.Trades.Max(x => x.Index))
+                        if (tradeMessage.Index == maxIndex)
                         {
                             var evt = new MarketDataChangedEvent
                             {
