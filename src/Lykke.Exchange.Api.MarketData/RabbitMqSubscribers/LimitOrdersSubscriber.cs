@@ -249,8 +249,8 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.VolumeQuote),
                         quoteVolumeSum.ToString(CultureInfo.InvariantCulture)));
 
-                        tasks.Add(_database.SortedSetAddAsync(baseVolumeKey, RedisExtensions.SerializeWithTimestamp(baseVolume, nowDate), now));
-                        tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(quotingVolume, nowDate), now));
+                        tasks.Add(_database.SortedSetAddAsync(baseVolumeKey, RedisExtensions.SerializeWithTimestamp(baseVolume, nowDate.AddTicks(tradeMessage.Index)), now));
+                        tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(quotingVolume, nowDate.AddTicks(tradeMessage.Index)), now));
 
                         tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(baseVolumeKey, 0, from, Exclude.Stop, CommandFlags.FireAndForget));
                         tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(quoteVolumeKey, 0, from, Exclude.Stop, CommandFlags.FireAndForget));
