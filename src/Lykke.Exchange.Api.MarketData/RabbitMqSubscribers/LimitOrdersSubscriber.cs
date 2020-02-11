@@ -271,7 +271,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                                 Low = low
                             };
 
-                            _log.Info("Send MarketDataChangedEvent", context: evt.ToJson());
+                            _log.Info($"Send MarketDataChangedEvent for trade index = {tradeMessage.Index}", context: evt.ToJson());
 
                             _cqrsEngine.PublishEvent(evt, MarketDataBoundedContext.Name);
                         }
