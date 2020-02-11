@@ -257,20 +257,24 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
 
                         await Task.WhenAll(tasks);
 
-                        var evt = new MarketDataChangedEvent
+                        //send event only for the last trade in the order
+                        if (tradeMessage.Index == orderMessage.Trades.Max(x => x.Index))
                         {
-                            AssetPairId = assetPairId,
-                            VolumeBase = baseVolumeSum,
-                            VolumeQuote = quoteVolumeSum,
-                            PriceChange = priceChange,
-                            LastPrice = (decimal) tradeMessage.Price,
-                            High = high,
-                            Low = low
-                        };
+                            var evt = new MarketDataChangedEvent
+                            {
+                                AssetPairId = assetPairId,
+                                VolumeBase = baseVolumeSum,
+                                VolumeQuote = quoteVolumeSum,
+                                PriceChange = priceChange,
+                                LastPrice = (decimal) tradeMessage.Price,
+                                High = high,
+                                Low = low
+                            };
 
-                        _log.Info("Send MarketDataChangedEvent", context: evt.ToJson());
+                            _log.Info("Send MarketDataChangedEvent", context: evt.ToJson());
 
-                        _cqrsEngine.PublishEvent(evt, MarketDataBoundedContext.Name);
+                            _cqrsEngine.PublishEvent(evt, MarketDataBoundedContext.Name);
+                        }
                     }
                 }
             }
