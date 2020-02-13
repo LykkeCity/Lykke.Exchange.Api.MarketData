@@ -39,9 +39,9 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             await Task.WhenAll(assetPairsTask, marketDataTask);
 
-            var todayCandlesTask = GetCandlesAsync(now - TimeSpan.FromHours(24), now.AddMinutes(5),
+            var todayCandlesTask = GetCandlesAsync(now.AddHours(-24), now.AddMinutes(5),
                 assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Min5);
-            var lastMonthCandlesTask = GetCandlesAsync(now.AddYears(-1) - TimeSpan.FromHours(24), now.AddMonths(1),
+            var lastMonthCandlesTask = GetCandlesAsync(now.AddYears(-1).AddHours(-24), now.AddMonths(1),
                 assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Month);
 
             await Task.WhenAll(todayCandlesTask, lastMonthCandlesTask);
@@ -68,17 +68,43 @@ namespace Lykke.Exchange.Api.MarketData.Services
             var sw = new Stopwatch();
             Console.WriteLine("Saving data to redis...");
             sw.Start();
-            var nowDate = DateTime.UtcNow;
-            var now = nowDate.ToUnixTime();
             var tasks = new List<Task>();
 
+            List<string> assetPairIds = prices.Keys.ToList();
             var pricesValue = new Dictionary<string, SortedSetEntry[]>();
+            var baseVolumesValue = new Dictionary<string, SortedSetEntry[]>();
+            var quoteVolumesValue = new Dictionary<string, SortedSetEntry[]>();
+            var highValue = new Dictionary<string, SortedSetEntry[]>();
+            var lowValue = new Dictionary<string, SortedSetEntry[]>();
 
-            foreach (var price in prices)
+            tasks.Add(_database.SortedSetAddAsync(RedisService.GetAssetPairsKey(),
+                marketData.Select(x => new SortedSetEntry(x.AssetPairId, 0)).ToArray()));
+
+            foreach (var assetPairId in assetPairIds)
             {
-                pricesValue.Add(price.Key,
-                    price.Value.Select(x =>
+                pricesValue.Add(assetPairId,
+                    prices[assetPairId].Select(x =>
                         new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.Open, x.DateTime),
+                            x.DateTime.ToUnixTime())).ToArray());
+
+                baseVolumesValue.Add(assetPairId,
+                    prices[assetPairId].Select(x =>
+                        new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.TradingVolume, x.DateTime),
+                            x.DateTime.ToUnixTime())).ToArray());
+
+                quoteVolumesValue.Add(assetPairId,
+                    prices[assetPairId].Select(x =>
+                        new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.TradingOppositeVolume, x.DateTime),
+                            x.DateTime.ToUnixTime())).ToArray());
+
+                highValue.Add(assetPairId,
+                    prices[assetPairId].Select(x =>
+                        new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.High, x.DateTime),
+                            x.DateTime.ToUnixTime())).ToArray());
+
+                lowValue.Add(assetPairId,
+                    prices[assetPairId].Select(x =>
+                        new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.Low, x.DateTime),
                             x.DateTime.ToUnixTime())).ToArray());
             }
 
@@ -86,35 +112,18 @@ namespace Lykke.Exchange.Api.MarketData.Services
             {
                 tasks.Add(_database.HashSetAsync(RedisService.GetMarketDataKey(marketSlice.AssetPairId),
                     marketSlice.ToMarketSliceHash()));
-                tasks.Add(_database.SortedSetAddAsync(RedisService.GetAssetPairsKey(), marketSlice.AssetPairId, 0));
-
-                string baseVolumeKey = RedisService.GetMarketDataBaseVolumeKey(marketSlice.AssetPairId);
-                string quoteVolumeKey = RedisService.GetMarketDataQuoteVolumeKey(marketSlice.AssetPairId);
-
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(baseVolumeKey, 0, now - 1, Exclude.None,
-                    CommandFlags.FireAndForget));
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(quoteVolumeKey, 0, now - 1, Exclude.None,
-                    CommandFlags.FireAndForget));
-
-                if (!string.IsNullOrEmpty(marketSlice.VolumeBase))
-                    tasks.Add(_database.SortedSetAddAsync(baseVolumeKey,
-                        RedisExtensions.SerializeWithTimestamp(
-                            decimal.Parse(marketSlice.VolumeBase, CultureInfo.InvariantCulture), nowDate), now));
-
-                if (!string.IsNullOrEmpty(marketSlice.VolumeQuote))
-                    tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey,
-                        RedisExtensions.SerializeWithTimestamp(
-                            decimal.Parse(marketSlice.VolumeQuote, CultureInfo.InvariantCulture), nowDate), now));
-
-                await Task.WhenAll(tasks);
-                tasks.Clear();
             }
 
+            await Task.WhenAll(tasks);
             tasks = new List<Task>();
 
-            foreach (var entry in pricesValue)
+            foreach (var assetPairId in assetPairIds)
             {
-                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataPriceKey(entry.Key), entry.Value));
+                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataOpenPriceKey(assetPairId), pricesValue[assetPairId]));
+                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataBaseVolumeKey(assetPairId), baseVolumesValue[assetPairId]));
+                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataQuoteVolumeKey(assetPairId), quoteVolumesValue[assetPairId]));
+                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataHighKey(assetPairId), highValue[assetPairId]));
+                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataLowKey(assetPairId), lowValue[assetPairId]));
             }
 
             await Task.WhenAll(tasks);

@@ -4,6 +4,7 @@ using Grpc.Core;
 using Grpc.Reflection;
 using Grpc.Reflection.V1Alpha;
 using JetBrains.Annotations;
+using Lykke.Exchange.Api.MarketData.PeriodicalHandlers;
 using Lykke.Exchange.Api.MarketData.RabbitMqSubscribers;
 using Lykke.Exchange.Api.MarketData.Services;
 using Lykke.Exchange.Api.MarketData.Settings;
@@ -94,6 +95,10 @@ namespace Lykke.Exchange.Api.MarketData.Modules
             builder.RegisterAssetsClient(_appSettings.CurrentValue.AssetsServiceClient);
 
             builder.RegisterType<RedisService>().SingleInstance();
+            builder.RegisterType<CleanupHandler>()
+                .As<IStartable>()
+                .AutoActivate()
+                .SingleInstance();
         }
     }
 }

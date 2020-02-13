@@ -20,11 +20,13 @@ namespace Lykke.Exchange.Api.MarketData.Services
             _database = database;
         }
 
-        public static string GetMarketDataKey(string assetPairId) => $"MarketData:Slice:{assetPairId}";
+        public static string GetMarketDataKey(string assetPairId) => $"MarketData:data:{assetPairId}:Slice";
         public static string GetAssetPairsKey() => "MarketData:AssetPairs";
-        public static string GetMarketDataBaseVolumeKey(string assetPairId) => $"MarketData:BaseVolume:{assetPairId}";
-        public static string GetMarketDataQuoteVolumeKey(string assetPairId) => $"MarketData:QuoteVolume:{assetPairId}";
-        public static string GetMarketDataPriceKey(string assetPairId) => $"MarketData:Price:{assetPairId}";
+        public static string GetMarketDataBaseVolumeKey(string assetPairId) => $"MarketData:data:{assetPairId}:BaseVolume";
+        public static string GetMarketDataQuoteVolumeKey(string assetPairId) => $"MarketData:data:{assetPairId}:QuoteVolume";
+        public static string GetMarketDataHighKey(string assetPairId) => $"MarketData:data:{assetPairId}:High";
+        public static string GetMarketDataLowKey(string assetPairId) => $"MarketData:data:{assetPairId}:Low";
+        public static string GetMarketDataOpenPriceKey(string assetPairId) => $"MarketData:data:{assetPairId}:OpenPrice";
 
         public async Task<MarketSlice> GetMarketDataAsync(string assetPair)
         {
@@ -33,38 +35,35 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             var nowDate = DateTime.UtcNow;
             var now = nowDate.ToUnixTime();
-            var from = (nowDate - TimeSpan.FromHours(24)).ToUnixTime();
-
-            decimal baseVolume = 0;
-            decimal quoteVolume = 0;
+            var from = nowDate.AddHours(-24).ToUnixTime();
 
             var baseVolumesDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataBaseVolumeKey(assetPair), from, now);
             var quoteVolumesDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataQuoteVolumeKey(assetPair), from, now);
-            var priceDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataPriceKey(assetPair), from, now);
+            var openPriceDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataOpenPriceKey(assetPair), from, now);
+            var highDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataHighKey(assetPair), from, now);
+            var lowDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataLowKey(assetPair), from, now);
 
-            await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, priceDataTask);
+            await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, openPriceDataTask, highDataTask, lowDataTask);
 
-            foreach (var baseVolumeData in baseVolumesDataTask.Result)
+            decimal baseVolume = baseVolumesDataTask.Result
+                .Where(x => x.HasValue)
+                .Sum(x => RedisExtensions.DeserializeTimestamped<decimal>(x));
+
+            decimal quoteVolume = quoteVolumesDataTask.Result
+                .Where(x => x.HasValue)
+                .Sum(x => RedisExtensions.DeserializeTimestamped<decimal>(x));
+
+            decimal high = highDataTask.Result.Any(x => x.HasValue) ? highDataTask.Result
+                .Where(x => x.HasValue)
+                .Max(x => RedisExtensions.DeserializeTimestamped<decimal>(x)) : 0;
+
+            decimal low = lowDataTask.Result.Any(x => x.HasValue) ? lowDataTask.Result
+                .Where(x => x.HasValue)
+                .Min(x => RedisExtensions.DeserializeTimestamped<decimal>(x)) : 0;
+
+            if (openPriceDataTask.Result.Any() && openPriceDataTask.Result[0].HasValue)
             {
-                if (!baseVolumeData.HasValue)
-                    continue;
-
-                decimal baseVol = RedisExtensions.DeserializeTimestamped<decimal>(baseVolumeData);
-                baseVolume += baseVol;
-            }
-
-            foreach (var quoteVolumeData in quoteVolumesDataTask.Result)
-            {
-                if (!quoteVolumeData.HasValue)
-                    continue;
-
-                decimal quoteVol = RedisExtensions.DeserializeTimestamped<decimal>(quoteVolumeData);
-                quoteVolume += quoteVol;
-            }
-
-            if (priceDataTask.Result.Any() && priceDataTask.Result[0].HasValue)
-            {
-                decimal price = RedisExtensions.DeserializeTimestamped<decimal>(priceDataTask.Result[0]);
+                decimal price = RedisExtensions.DeserializeTimestamped<decimal>(openPriceDataTask.Result[0]);
 
                 if (price > 0)
                 {
@@ -72,6 +71,12 @@ namespace Lykke.Exchange.Api.MarketData.Services
                     marketSlice.PriceChange = priceChange.ToString(CultureInfo.InvariantCulture);
                 }
             }
+
+            if (high > 0)
+                marketSlice.High = high.ToString(CultureInfo.InvariantCulture);
+
+            if (low > 0)
+                marketSlice.Low = low.ToString(CultureInfo.InvariantCulture);
 
             marketSlice.VolumeBase = baseVolume.ToString(CultureInfo.InvariantCulture);
             marketSlice.VolumeQuote = quoteVolume.ToString(CultureInfo.InvariantCulture);
