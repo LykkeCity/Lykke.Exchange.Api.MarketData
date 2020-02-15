@@ -39,16 +39,20 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             await Task.WhenAll(assetPairsTask, marketDataTask);
 
+            var marketData = marketDataTask.Result;
+
             var todayCandlesTask = GetCandlesAsync(now.AddHours(-24), now.AddMinutes(5),
                 assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Min5);
             var lastMonthCandlesTask = GetCandlesAsync(now.AddYears(-1).AddHours(-24), now.AddMonths(1),
                 assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Month);
+            var clearDataTask = ClearDataAsync(marketData.Select(x => x.AssetPairId).ToList());
 
-            await Task.WhenAll(todayCandlesTask, lastMonthCandlesTask);
+            await Task.WhenAll(todayCandlesTask, lastMonthCandlesTask, clearDataTask);
 
-            var marketData = marketDataTask.Result;
+
             var todayCandles = todayCandlesTask.Result;
             var lastMonthCandles = lastMonthCandlesTask.Result;
+
 
             foreach (var todayCandle in todayCandles)
             {
@@ -61,6 +65,21 @@ namespace Lykke.Exchange.Api.MarketData.Services
             }
 
             await SaveMarketDataAsync(marketData, todayCandles);
+        }
+
+        private Task ClearDataAsync(List<string> assetPairIds)
+        {
+            var tasks = new List<Task>();
+
+            foreach (var assetPairId in assetPairIds)
+            {
+                tasks.Add(_database.KeyDeleteAsync(RedisService.GetMarketDataBaseVolumeKey(assetPairId)));
+                tasks.Add(_database.KeyDeleteAsync(RedisService.GetMarketDataQuoteVolumeKey(assetPairId)));
+                tasks.Add(_database.KeyDeleteAsync(RedisService.GetMarketDataHighKey(assetPairId)));
+                tasks.Add(_database.KeyDeleteAsync(RedisService.GetMarketDataLowKey(assetPairId)));
+            }
+
+            return Task.WhenAll(tasks);
         }
 
         private async Task SaveMarketDataAsync(List<MarketSlice> marketData, Dictionary<string, IList<Candle>> prices)
