@@ -5,8 +5,6 @@ VisualStudioVersion = 15.0.26124.0
 MinimumVisualStudioVersion = 15.0.26124.0
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lykke.Exchange.Api.MarketData", "src\Lykke.Exchange.Api.MarketData\Lykke.Exchange.Api.MarketData.csproj", "{77731E7D-928D-4606-81BD-C5DB4D1E4AB5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Lykke.Exchange.Api.MarketData.ConsoleClient", "src\Lykke.Exchange.Api.MarketData.ConsoleClient\Lykke.Exchange.Api.MarketData.ConsoleClient.csproj", "{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SolutionItems", "SolutionItems", "{53727A06-DCA6-48D5-A9E4-078CD34440FB}"
 ProjectSection(SolutionItems) = preProject
 	src\proto\MarketDataService.proto = src\proto\MarketDataService.proto
@@ -40,18 +38,6 @@ Global
 		{77731E7D-928D-4606-81BD-C5DB4D1E4AB5}.Release|x64.Build.0 = Release|Any CPU
 		{77731E7D-928D-4606-81BD-C5DB4D1E4AB5}.Release|x86.ActiveCfg = Release|Any CPU
 		{77731E7D-928D-4606-81BD-C5DB4D1E4AB5}.Release|x86.Build.0 = Release|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Debug|x64.ActiveCfg = Debug|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Debug|x64.Build.0 = Debug|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Debug|x86.Build.0 = Debug|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|Any CPU.Build.0 = Release|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|x64.ActiveCfg = Release|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|x64.Build.0 = Release|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|x86.ActiveCfg = Release|Any CPU
-		{19E495CD-5B4D-4B2F-A3F0-2309B54F1780}.Release|x86.Build.0 = Release|Any CPU
 		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{D4198D75-A05A-436E-8B8D-2A2B20317DD4}.Debug|x64.ActiveCfg = Debug|Any CPU

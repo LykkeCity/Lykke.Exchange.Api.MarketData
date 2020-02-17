@@ -54,7 +54,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
         {
             var settings = RabbitMqSubscriptionSettings
                 .ForSubscriber(_connectionString, "lykke", _exchangeName, "lykke", "marketdata");
-            
+
             settings.DeadLetterExchangeName = null;
 
             try
@@ -86,7 +86,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
         {
             if (message.Orders == null || !message.Orders.Any())
                 return;
-            
+
             HashSet<string> limitOrderIds = message.Orders
                 .Select(o => o.Order.Id)
                 .ToHashSet();
@@ -105,14 +105,30 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                     _log.Error($"Asset pair {assetPairId} not found");
                     continue;
                 }
-                
+
+                List<LimitOrdersMessage.Trade> allTrades = message.Orders.SelectMany(x => x.Trades).ToList();
+
+                string marketDataKey = RedisService.GetMarketDataKey(assetPairId);
+                string baseVolumeKey = RedisService.GetMarketDataBaseVolumeKey(assetPairId);
+                string quoteVolumeKey = RedisService.GetMarketDataQuoteVolumeKey(assetPairId);
+                string priceKey = RedisService.GetMarketDataOpenPriceKey(assetPairId);
+                string highKey = RedisService.GetMarketDataHighKey(assetPairId);
+                string lowKey = RedisService.GetMarketDataLowKey(assetPairId);
+                decimal highValue = 0;
+                decimal lowValue = 0;
+                var highLowDateTime = DateTime.UtcNow;
+
                 foreach (var tradeMessage in orderMessage.Trades.OrderBy(t => t.Timestamp).ThenBy(t => t.Index))
                 {
-                    string marketDataKey = RedisService.GetMarketDataKey(assetPairId);
-                    string price = ((decimal)tradeMessage.Price).ToString(CultureInfo.InvariantCulture);
-                    
-                    await _database.HashSetAsync(marketDataKey, nameof(MarketSlice.LastPrice), price);
-                    
+                    long maxIndex = allTrades
+                        .Where(x => x.OppositeOrderId == tradeMessage.OppositeOrderId)
+                        .Max(t => t.Index);
+
+                    var price = (decimal)tradeMessage.Price;
+                    string priceString = price.ToString(CultureInfo.InvariantCulture);
+
+                    await _database.HashSetAsync(marketDataKey, nameof(MarketSlice.LastPrice), priceString);
+
                     var isOppositeOrderIsLimit = limitOrderIds.Contains(tradeMessage.OppositeOrderId);
                     // If opposite order is market order, then unconditionally takes the given limit order.
                     // But if both of orders are limit orders, we should take only one of them.
@@ -139,140 +155,119 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         baseVolume = (decimal)tradeMessage.OppositeVolume;
                         quotingVolume = (decimal)tradeMessage.Volume;
                     }
-                    
+
                     if (tradeMessage.Price > 0 && baseVolume > 0 && quotingVolume > 0)
                     {
                         var nowDate = tradeMessage.Timestamp;
                         DateTime interval = nowDate.TruncateTo(CandleTimeInterval.Min5);
                         double intervalDate = interval.ToUnixTime();
                         double now = nowDate.ToUnixTime();
-                        double from = (nowDate - TimeSpan.FromHours(24)).ToUnixTime();
-                        string baseVolumeKey = RedisService.GetMarketDataBaseVolumeKey(assetPairId);
-                        string quoteVolumeKey = RedisService.GetMarketDataQuoteVolumeKey(assetPairId);
-                        string priceKey = RedisService.GetMarketDataPriceKey(assetPairId);
-                        
+                        double from = nowDate.AddHours(-24).ToUnixTime();
+
                         decimal baseVolumeSum = baseVolume;
                         decimal quoteVolumeSum = quotingVolume;
                         decimal priceChange = 0;
-                        decimal high = (decimal)tradeMessage.Price;
-                        decimal low = (decimal)tradeMessage.Price;
-                        
+                        highValue = (decimal)tradeMessage.Price;
+                        lowValue = (decimal)tradeMessage.Price;
+                        highLowDateTime = nowDate;
+
                         var tasks = new List<Task>();
-                        
-                        var highValueTask = _database.HashGetAsync(marketDataKey, nameof(MarketSlice.High));
-                        var lowValueTask = _database.HashGetAsync(marketDataKey, nameof(MarketSlice.Low));
 
-                        await Task.WhenAll(highValueTask, lowValueTask);
-
-                        if (highValueTask.Result.HasValue)
-                        {
-                            if ((double) highValueTask.Result < tradeMessage.Price)
-                            {
-                                tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.High), price));
-                            }
-                            else
-                            {
-                                high = decimal.Parse(highValueTask.Result, CultureInfo.InvariantCulture);
-                            }
-                        }
-                        else
-                        {
-                            tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.High), price));
-                        }
-
-                        if (lowValueTask.Result.HasValue)
-                        { 
-                            if ((double) lowValueTask.Result > tradeMessage.Price)
-                            {
-                                tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.Low), price));
-                            }
-                            else
-                            {
-                                low = decimal.Parse(lowValueTask.Result, CultureInfo.InvariantCulture);
-                            }
-                        }
-                        else
-                        {
-                            tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.Low), price));
-                        }
-                        
                         var baseVolumesDataTask = _database.SortedSetRangeByScoreAsync(baseVolumeKey, from, now);
                         var quoteVolumesDataTask = _database.SortedSetRangeByScoreAsync(quoteVolumeKey, from, now);
+                        var highListTask = _database.SortedSetRangeByScoreAsync(highKey, from, now);
+                        var lowListTask = _database.SortedSetRangeByScoreAsync(lowKey, from, now);
 
-                        await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask);
-                        
-                        foreach (var baseVolumeData in baseVolumesDataTask.Result)
-                        {
-                            if (!baseVolumeData.HasValue)
-                                continue;
-                            
-                            decimal baseVol = RedisExtensions.DeserializeTimestamped<decimal>(baseVolumeData);
-                            baseVolumeSum += baseVol;
-                        }
-                    
-                        foreach (var quoteVolumeData in quoteVolumesDataTask.Result)
-                        {
-                            if (!quoteVolumeData.HasValue)
-                                continue;
+                        await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, highListTask, lowListTask);
 
-                            decimal quoteVol = RedisExtensions.DeserializeTimestamped<decimal>(quoteVolumeData);
-                            quoteVolumeSum += quoteVol;
-                        }
-                        
+                        baseVolumeSum += baseVolumesDataTask.Result
+                            .Where(x => x.HasValue)
+                            .Sum(x => RedisExtensions.DeserializeTimestamped<decimal>(x));
+
+                        quoteVolumeSum += quoteVolumesDataTask.Result
+                            .Where(x => x.HasValue)
+                            .Sum(x => RedisExtensions.DeserializeTimestamped<decimal>(x));
+
+                        var currentHigh = highListTask.Result.Any(x => x.HasValue)
+                            ? highListTask.Result
+                                .Where(x => x.HasValue)
+                                .Max(x => RedisExtensions.DeserializeTimestamped<decimal>(x))
+                            : (decimal?) null;
+
+                        if (currentHigh.HasValue && currentHigh.Value > highValue)
+                            highValue = currentHigh.Value;
+
+                        var currentLow = lowListTask.Result.Any(x => x.HasValue)
+                            ? lowListTask.Result
+                                .Where(x => x.HasValue)
+                                .Min(x => RedisExtensions.DeserializeTimestamped<decimal>(x))
+                            : (decimal?)null;
+
+                        if (currentLow.HasValue && currentLow.Value < lowValue)
+                            lowValue = currentLow.Value;
+
                         var priceData = await _database.SortedSetRangeByScoreAsync(priceKey, intervalDate, intervalDate);
 
                         //new openPrice
                         if (!priceData.Any() || !priceData[0].HasValue)
                         {
-                            tasks.Add(_database.SortedSetAddAsync(priceKey, RedisExtensions.SerializeWithTimestamp(price, interval), intervalDate));
+                            tasks.Add(_database.SortedSetAddAsync(priceKey, RedisExtensions.SerializeWithTimestamp(priceString, interval), intervalDate));
                             tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(priceKey, 0, from, Exclude.Stop, CommandFlags.FireAndForget));
                         }
-                        
+
                         var pricesData = await _database.SortedSetRangeByScoreAsync(priceKey, from, now);
 
                         if (pricesData.Any() && pricesData[0].HasValue)
                         {
                             decimal openPrice = RedisExtensions.DeserializeTimestamped<decimal>(pricesData[0]);
-                            
+
                             if (openPrice > 0)
                                 priceChange = ((decimal)tradeMessage.Price - openPrice) / openPrice;
                         }
 
                         if (priceChange != 0)
                         {
-                            tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.PriceChange), 
+                            tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.PriceChange),
                                 priceChange.ToString(CultureInfo.InvariantCulture)));
                         }
-                
-                        tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.VolumeBase), 
-                        baseVolumeSum.ToString(CultureInfo.InvariantCulture)));
-                        tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.VolumeQuote), 
-                        quoteVolumeSum.ToString(CultureInfo.InvariantCulture)));
-                        
-                        tasks.Add(_database.SortedSetAddAsync(baseVolumeKey, RedisExtensions.SerializeWithTimestamp(baseVolume, nowDate), now));
-                        tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(quotingVolume, nowDate), now));
-                        
-                        tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(baseVolumeKey, 0, from, Exclude.Stop, CommandFlags.FireAndForget));
-                        tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(quoteVolumeKey, 0, from, Exclude.Stop, CommandFlags.FireAndForget));
+
+                        tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.VolumeBase), baseVolumeSum.ToString(CultureInfo.InvariantCulture)));
+                        tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.VolumeQuote), quoteVolumeSum.ToString(CultureInfo.InvariantCulture)));
+
+                        var nowTradeDate = nowDate.AddMilliseconds(tradeMessage.Index);
+
+                        tasks.Add(_database.SortedSetAddAsync(baseVolumeKey, RedisExtensions.SerializeWithTimestamp(baseVolume, nowTradeDate), now));
+                        tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(quotingVolume, nowTradeDate), now));
 
                         await Task.WhenAll(tasks);
 
-                        var evt = new MarketDataChangedEvent
+                        //send event only for the last trade in the order
+                        if (tradeMessage.Index == maxIndex)
                         {
-                            AssetPairId = assetPairId,
-                            VolumeBase = baseVolumeSum,
-                            VolumeQuote = quoteVolumeSum,
-                            PriceChange = priceChange,
-                            LastPrice = (decimal) tradeMessage.Price,
-                            High = high,
-                            Low = low
-                        };
+                            var evt = new MarketDataChangedEvent
+                            {
+                                AssetPairId = assetPairId,
+                                VolumeBase = baseVolumeSum,
+                                VolumeQuote = quoteVolumeSum,
+                                PriceChange = priceChange,
+                                LastPrice = (decimal) tradeMessage.Price,
+                                High = highValue,
+                                Low = lowValue
+                            };
 
-                        Console.WriteLine(evt.ToJson());
-                        
-                        _cqrsEngine.PublishEvent(evt, MarketDataBoundedContext.Name);
+                            _log.Info($"Send MarketDataChangedEvent for trade index = {tradeMessage.Index}", context: evt.ToJson());
+
+                            _cqrsEngine.PublishEvent(evt, MarketDataBoundedContext.Name);
+                        }
                     }
                 }
+
+                await Task.WhenAll(
+                    _database.HashSetAsync(marketDataKey, nameof(MarketSlice.High), highValue.ToString(CultureInfo.InvariantCulture)),
+                    _database.HashSetAsync(marketDataKey, nameof(MarketSlice.Low), lowValue.ToString(CultureInfo.InvariantCulture)),
+                    _database.SortedSetAddAsync(highKey, RedisExtensions.SerializeWithTimestamp(highValue, highLowDateTime), highLowDateTime.ToUnixTime()),
+                    _database.SortedSetAddAsync(lowKey, RedisExtensions.SerializeWithTimestamp(lowValue, highLowDateTime), highLowDateTime.ToUnixTime())
+                );
             }
         }
     }

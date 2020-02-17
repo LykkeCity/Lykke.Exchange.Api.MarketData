@@ -6,8 +6,21 @@
     </PropertyGroup>
 
   <ItemGroup>
-    <Protobuf Include="..\..\src\proto\*.proto" GrpcServices="Client" />
-    <Content Include="@(Protobuf)" LinkBase="" />
+    <PackageReference Include="Autofac" Version="4.8.1" />
+    <PackageReference Include="Grpc.Core" Version="2.26.0" />
+    <PackageReference Include="Grpc.Reflection" Version="2.26.0" />
+    <PackageReference Include="Grpc.Tools" Version="2.26.0">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="JetBrains.Annotations" Version="11.1.0" />
+    <PackageReference Include="Lykke.SettingsReader" Version="5.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Protobuf Include="..\..\proto\MarketDataService.proto">
+      <Link>MarketDataService.proto</Link>
+    </Protobuf>
   </ItemGroup>
 
 </Project>

@@ -14,11 +14,10 @@ namespace Lykke.Exchange.Api.MarketData.Services
         {
             _grpcServer = grpcServer;
         }
-        
-        public async Task StopAsync()
+
+        public Task StopAsync()
         {
-            await _grpcServer.ShutdownAsync();
-            
+            return _grpcServer.ShutdownAsync();
         }
     }
 }

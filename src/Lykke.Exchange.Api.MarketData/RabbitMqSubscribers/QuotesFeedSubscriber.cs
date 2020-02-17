@@ -34,12 +34,12 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
             _exchangeName = exchangeName;
             _log = logFactory.CreateLog(this);
         }
-        
+
         public void Start()
         {
             var settings = RabbitMqSubscriptionSettings
                 .ForSubscriber(_connectionString, "lykke", _exchangeName, "lykke", $"MarketData-{nameof(QuotesFeedSubscriber)}");
-            
+
             settings.DeadLetterExchangeName = null;
 
             try
@@ -61,15 +61,15 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                 throw;
             }
         }
-        
+
         public void Dispose()
         {
             _subscriber?.Stop();
         }
 
-        private async Task ProcessQuoteAsync(QuoteMessage quote)
+        private Task ProcessQuoteAsync(QuoteMessage quote)
         {
-            await _database.HashSetAsync(RedisService.GetMarketDataKey(quote.AssetPair),
+            return _database.HashSetAsync(RedisService.GetMarketDataKey(quote.AssetPair),
                 quote.IsBuy ? nameof(MarketSlice.Bid) : nameof(MarketSlice.Ask),
                 quote.Price.ToString(CultureInfo.InvariantCulture));
         }
