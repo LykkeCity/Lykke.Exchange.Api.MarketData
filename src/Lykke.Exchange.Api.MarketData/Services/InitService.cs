@@ -69,24 +69,21 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
         private Task ClearDataAsync(List<string> assetPairIds)
         {
-            var tasks = new List<Task>();
+            var keys = new List<string>();
 
             foreach (var assetPairId in assetPairIds)
             {
-                tasks.Add(_database.KeyDeleteAsync(RedisService.GetMarketDataBaseVolumeKey(assetPairId)));
-                tasks.Add(_database.KeyDeleteAsync(RedisService.GetMarketDataQuoteVolumeKey(assetPairId)));
-                tasks.Add(_database.KeyDeleteAsync(RedisService.GetMarketDataHighKey(assetPairId)));
-                tasks.Add(_database.KeyDeleteAsync(RedisService.GetMarketDataLowKey(assetPairId)));
+                keys.Add(RedisService.GetMarketDataBaseVolumeKey(assetPairId));
+                keys.Add(RedisService.GetMarketDataQuoteVolumeKey(assetPairId));
+                keys.Add(RedisService.GetMarketDataHighKey(assetPairId));
+                keys.Add(RedisService.GetMarketDataLowKey(assetPairId));
             }
 
-            return Task.WhenAll(tasks);
+            return _database.KeyDeleteAsync(keys.Select(x => (RedisKey)x).ToArray());
         }
 
         private async Task SaveMarketDataAsync(List<MarketSlice> marketData, Dictionary<string, IList<Candle>> prices)
         {
-            var sw = new Stopwatch();
-            Console.WriteLine("Saving data to redis...");
-            sw.Start();
             var tasks = new List<Task>();
 
             List<string> assetPairIds = prices.Keys.ToList();
@@ -146,9 +143,6 @@ namespace Lykke.Exchange.Api.MarketData.Services
             }
 
             await Task.WhenAll(tasks);
-            sw.Stop();
-
-            Console.WriteLine($"Saved data to redis [{sw.Elapsed}]");
         }
 
         private void UpdateCandlesInfo(string assetPairId, IList<Candle> candles, List<MarketSlice> marketData)

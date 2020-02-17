@@ -45,7 +45,7 @@ namespace Lykke.Exchange.Api.MarketData.PeriodicalHandlers
 
         private async Task Execute(ITimerTrigger timer, TimerTriggeredHandlerArgs args, CancellationToken cancellationToken)
         {
-            double from = DateTime.UtcNow.AddHours(-24).ToUnixTime();
+            double to = DateTime.UtcNow.AddHours(-24).ToUnixTime();
             var assetPairIds = (await _marketProfileClient.ApiMarketProfileGetAsync(cancellationToken))
                 .Select(x => x.AssetPair)
                 .ToList();
@@ -54,10 +54,10 @@ namespace Lykke.Exchange.Api.MarketData.PeriodicalHandlers
 
             foreach (var assetPairId in assetPairIds)
             {
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataBaseVolumeKey(assetPairId), 0, from, Exclude.Stop, CommandFlags.FireAndForget));
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataQuoteVolumeKey(assetPairId), 0, from, Exclude.Stop, CommandFlags.FireAndForget));
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataHighKey(assetPairId), 0, from, Exclude.Stop, CommandFlags.FireAndForget));
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataLowKey(assetPairId), 0, from, Exclude.Stop, CommandFlags.FireAndForget));
+                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataBaseVolumeKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
+                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataQuoteVolumeKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
+                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataHighKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
+                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataLowKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
             }
 
             await Task.WhenAll(tasks);
