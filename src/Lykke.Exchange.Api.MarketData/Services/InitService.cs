@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -18,16 +17,19 @@ namespace Lykke.Exchange.Api.MarketData.Services
         private readonly IDatabase _database;
         private readonly ILykkeMarketProfile _marketProfileClient;
         private readonly ICandleshistoryservice _candlesHistoryClient;
+        private readonly TimeSpan _marketDataInterval;
 
         public InitService(
             IDatabase database,
             ILykkeMarketProfile marketProfileClient,
-            ICandleshistoryservice candlesHistoryClient
+            ICandleshistoryservice candlesHistoryClient,
+            TimeSpan marketDataInterval
         )
         {
             _database = database;
             _marketProfileClient = marketProfileClient;
             _candlesHistoryClient = candlesHistoryClient;
+            _marketDataInterval = marketDataInterval;
         }
 
         public async Task LoadAsync()
@@ -41,9 +43,9 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             var marketData = marketDataTask.Result;
 
-            var todayCandlesTask = GetCandlesAsync(now.AddHours(-24), now.AddMinutes(5),
+            var todayCandlesTask = GetCandlesAsync(now - _marketDataInterval, now.AddMinutes(5),
                 assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Min5);
-            var lastMonthCandlesTask = GetCandlesAsync(now.AddYears(-1).AddHours(-24), now.AddMonths(1),
+            var lastMonthCandlesTask = GetCandlesAsync(now.AddYears(-1) - _marketDataInterval, now.AddMonths(1),
                 assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Month);
             var clearDataTask = ClearDataAsync(marketData.Select(x => x.AssetPairId).ToList());
 

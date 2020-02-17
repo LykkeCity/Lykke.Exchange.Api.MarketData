@@ -1,3 +1,4 @@
+using System;
 using JetBrains.Annotations;
 
 namespace Lykke.Exchange.Api.MarketData.Settings
@@ -12,6 +13,6 @@ namespace Lykke.Exchange.Api.MarketData.Settings
         public int GrpcPort { get; set; }
         public string MarketProfileUrl { get; set; }
         public string CandlesHistoryUrl { get; set; }
-        public string TradesAdapterUrl { get; set; }
+        public TimeSpan MarketDataInterval { get; set; }
     }
 }

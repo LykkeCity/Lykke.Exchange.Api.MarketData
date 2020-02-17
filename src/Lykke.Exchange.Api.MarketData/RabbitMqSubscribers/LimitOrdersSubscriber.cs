@@ -29,6 +29,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
         private readonly ILogFactory _logFactory;
         private readonly string _connectionString;
         private readonly string _exchangeName;
+        private readonly TimeSpan _marketDataInterval;
         private readonly ILog _log;
         private RabbitMqSubscriber<LimitOrdersMessage> _subscriber;
 
@@ -38,7 +39,8 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
             IAssetPairsReadModelRepository assetPairsRepository,
             ILogFactory logFactory,
             string connectionString,
-            string exchangeName
+            string exchangeName,
+            TimeSpan marketDataInterval
         )
         {
             _database = database;
@@ -47,6 +49,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
             _logFactory = logFactory;
             _connectionString = connectionString;
             _exchangeName = exchangeName;
+            _marketDataInterval = marketDataInterval;
             _log = logFactory.CreateLog(this);
         }
 
@@ -162,7 +165,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         DateTime interval = nowDate.TruncateTo(CandleTimeInterval.Min5);
                         double intervalDate = interval.ToUnixTime();
                         double now = nowDate.ToUnixTime();
-                        double from = nowDate.AddHours(-24).ToUnixTime();
+                        double from = (nowDate - _marketDataInterval).ToUnixTime();
 
                         decimal baseVolumeSum = baseVolume;
                         decimal quoteVolumeSum = quotingVolume;

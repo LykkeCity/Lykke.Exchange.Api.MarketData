@@ -12,12 +12,15 @@ namespace Lykke.Exchange.Api.MarketData.Services
     public class RedisService
     {
         private readonly IDatabase _database;
+        private readonly TimeSpan _marketDataInterval;
 
         public RedisService(
-            IDatabase database
+            IDatabase database,
+            TimeSpan marketDataInterval
             )
         {
             _database = database;
+            _marketDataInterval = marketDataInterval;
         }
 
         public static string GetMarketDataKey(string assetPairId) => $"MarketData:data:{assetPairId}:Slice";
@@ -35,7 +38,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             var nowDate = DateTime.UtcNow;
             var now = nowDate.ToUnixTime();
-            var from = nowDate.AddHours(-24).ToUnixTime();
+            var from = (nowDate - _marketDataInterval).ToUnixTime();
 
             var baseVolumesDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataBaseVolumeKey(assetPair), from, now);
             var quoteVolumesDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataQuoteVolumeKey(assetPair), from, now);
