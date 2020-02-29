@@ -5,7 +5,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Autofac;
 using Common;
-using Common.Log;
 using JetBrains.Annotations;
 using Lykke.Common.Log;
 using Lykke.Exchange.Api.MarketData.Services;
@@ -21,7 +20,6 @@ namespace Lykke.Exchange.Api.MarketData.PeriodicalHandlers
         private readonly IDatabase _database;
         private readonly TimeSpan _marketDataInterval;
         private readonly TimerTrigger _timerTrigger;
-        private readonly ILog _log;
 
         public CleanupHandler(
             ILykkeMarketProfile marketProfileClient,
@@ -35,7 +33,6 @@ namespace Lykke.Exchange.Api.MarketData.PeriodicalHandlers
             _marketDataInterval = marketDataInterval;
             _timerTrigger = new TimerTrigger(nameof(CleanupHandler), TimeSpan.FromMinutes(10), logFactory);
             _timerTrigger.Triggered += Execute;
-            _log = logFactory.CreateLog(this);
         }
 
         public void Start()
@@ -54,8 +51,6 @@ namespace Lykke.Exchange.Api.MarketData.PeriodicalHandlers
             var date = DateTime.UtcNow - _marketDataInterval;
             double to = date.ToUnixTime();
 
-            _log.Info($"Clean up data older than {date} [0 to {to}]");
-
             var assetPairIds = (await _marketProfileClient.ApiMarketProfileGetAsync(cancellationToken))
                 .Select(x => x.AssetPair)
                 .ToList();
@@ -68,6 +63,7 @@ namespace Lykke.Exchange.Api.MarketData.PeriodicalHandlers
                 tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataQuoteVolumeKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
                 tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataHighKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
                 tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataLowKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
+                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataOpenPriceKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
             }
 
             await Task.WhenAll(tasks);

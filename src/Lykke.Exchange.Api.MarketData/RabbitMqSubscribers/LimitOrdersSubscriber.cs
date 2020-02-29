@@ -215,27 +215,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         if (!priceData.Any() || !priceData[0].HasValue)
                         {
                             tasks.Add(_database.SortedSetAddAsync(priceKey, RedisExtensions.SerializeWithTimestamp(priceString, interval), intervalDate));
-                            tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(priceKey, 0, from, Exclude.Stop, CommandFlags.FireAndForget));
                         }
-
-                        var pricesData = await _database.SortedSetRangeByScoreAsync(priceKey, from, now);
-
-                        if (pricesData.Any() && pricesData[0].HasValue)
-                        {
-                            decimal openPrice = RedisExtensions.DeserializeTimestamped<decimal>(pricesData[0]);
-
-                            if (openPrice > 0)
-                                priceChange = ((decimal)tradeMessage.Price - openPrice) / openPrice;
-                        }
-
-                        if (priceChange != 0)
-                        {
-                            tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.PriceChange),
-                                priceChange.ToString(CultureInfo.InvariantCulture)));
-                        }
-
-                        tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.VolumeBase), baseVolumeSum.ToString(CultureInfo.InvariantCulture)));
-                        tasks.Add(_database.HashSetAsync(marketDataKey, nameof(MarketSlice.VolumeQuote), quoteVolumeSum.ToString(CultureInfo.InvariantCulture)));
 
                         var nowTradeDate = nowDate.AddMilliseconds(tradeMessage.Index);
 
@@ -243,6 +223,8 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(quotingVolume, nowTradeDate), now));
 
                         await Task.WhenAll(tasks);
+
+                        Console.WriteLine($"Price: {price}, baseVolume: {baseVolume}, quoteVolume: {quotingVolume}, currentHigh: {currentHigh}, currentLow: {currentLow}, high: {highValue}, low: {lowValue}");
 
                         //send event only for the last trade in the order
                         if (tradeMessage.Index == maxIndex)
@@ -265,12 +247,13 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                     }
                 }
 
-                await Task.WhenAll(
-                    _database.HashSetAsync(marketDataKey, nameof(MarketSlice.High), highValue.ToString(CultureInfo.InvariantCulture)),
-                    _database.HashSetAsync(marketDataKey, nameof(MarketSlice.Low), lowValue.ToString(CultureInfo.InvariantCulture)),
-                    _database.SortedSetAddAsync(highKey, RedisExtensions.SerializeWithTimestamp(highValue, highLowDateTime), highLowDateTime.ToUnixTime()),
-                    _database.SortedSetAddAsync(lowKey, RedisExtensions.SerializeWithTimestamp(lowValue, highLowDateTime), highLowDateTime.ToUnixTime())
-                );
+                if (highValue > 0 && lowValue > 0)
+                {
+                    await Task.WhenAll(
+                        _database.SortedSetAddAsync(highKey, RedisExtensions.SerializeWithTimestamp(highValue, highLowDateTime), highLowDateTime.ToUnixTime()),
+                        _database.SortedSetAddAsync(lowKey, RedisExtensions.SerializeWithTimestamp(lowValue, highLowDateTime), highLowDateTime.ToUnixTime())
+                    );
+                }
             }
         }
     }
