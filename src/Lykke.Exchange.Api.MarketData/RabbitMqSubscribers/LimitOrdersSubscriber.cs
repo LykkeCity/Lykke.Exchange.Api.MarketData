@@ -180,8 +180,9 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         var quoteVolumesDataTask = _database.SortedSetRangeByScoreAsync(quoteVolumeKey, from, now);
                         var highListTask = _database.SortedSetRangeByScoreAsync(highKey, from, now);
                         var lowListTask = _database.SortedSetRangeByScoreAsync(lowKey, from, now);
+                        var priceDataTask = _database.SortedSetRangeByScoreAsync(priceKey, from, now);
 
-                        await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, highListTask, lowListTask);
+                        await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, highListTask, lowListTask, priceDataTask);
 
                         baseVolumeSum += baseVolumesDataTask.Result
                             .Where(x => x.HasValue)
@@ -209,6 +210,16 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         if (currentLow.HasValue && currentLow.Value < lowValue)
                             lowValue = currentLow.Value;
 
+                        var pricesData = priceDataTask.Result;
+
+                        if (pricesData.Any() && pricesData[0].HasValue)
+                        {
+                            decimal openPrice = RedisExtensions.DeserializeTimestamped<decimal>(pricesData[0]);
+
+                            if (openPrice > 0)
+                                priceChange = ((decimal)tradeMessage.Price - openPrice) / openPrice;
+                        }
+
                         var priceData = await _database.SortedSetRangeByScoreAsync(priceKey, intervalDate, intervalDate);
 
                         //new openPrice
@@ -223,8 +234,6 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(quotingVolume, nowTradeDate), now));
 
                         await Task.WhenAll(tasks);
-
-                        Console.WriteLine($"Price: {price}, baseVolume: {baseVolume}, quoteVolume: {quotingVolume}, currentHigh: {currentHigh}, currentLow: {currentLow}, high: {highValue}, low: {lowValue}");
 
                         //send event only for the last trade in the order
                         if (tradeMessage.Index == maxIndex)
