@@ -1,0 +1,107 @@
+@model Lykke.Exchange.Api.MarketData.Models.MarketDataViewModel
+
+@{
+    Layout = null;
+}
+
+<style>
+    table, td, th {
+    border: 1px solid black;
+    border-spacing: 0;
+    border-collapse: collapse;
+    }
+    td{
+        padding: 5px 10px;
+    }
+    .info {
+        float:left;
+    }
+</style>
+
+<div>
+    From: <b>@Model.From.ToString("u")</b> to: <b>@Model.To.ToString("u")</b><br/><br/>
+</div>
+
+<div>
+    <code>
+        AssetPair: @Model.Slice.AssetPairId,<br/>
+        VolumeBase: @Model.Slice.VolumeBase,<br/>
+        VolumeQuote: @Model.Slice.VolumeQuote,<br/>
+        PriceChange: @Model.Slice.PriceChange,<br/>
+        LastPrice: @Model.Slice.LastPrice,<br/>
+        High: @Model.Slice.High,<br/>
+        Low: @Model.Slice.Low,<br/>
+        Bid: @Model.Slice.Bid,<br/>
+        Ask: @Model.Slice.Ask<br/>
+    </code>
+</div>
+
+<h3>PriceChange = @Model.Slice.PriceChange</h3>
+<div>
+    <div>PriceChange = (LastPrice - firstPrice) / firstPrice</div>
+    <div>
+        LastPrice = @Model.Slice.LastPrice,<br/>
+        firstPrice = @(Model.PriceValues.Any() ? $"{Model.PriceValues[0].data}" : "-")<br/><br/>
+        @(Model.PriceValues.Any() ? $"({Model.Slice.LastPrice} - {Model.PriceValues[0].data}) / {Model.PriceValues[0].data} = {Model.Slice.PriceChange}" : null)]
+    </div>
+</div>
+<div class="info">
+    <h3>Base volume = @Model.Slice.VolumeBase</h3>
+
+    @if (Model.BaseVolumes.Any())
+    {
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>Value</th>
+            </tr>
+            @foreach (var vol in Model.BaseVolumes)
+            {
+                <tr>
+                    <td>@vol.dateTime</td>
+                    <td>@vol.data</td>
+                </tr>
+            }
+        </table>
+    }
+</div>
+<div class="info">
+    <h3>Quote volume = @Model.Slice.VolumeQuote</h3>
+
+    @if (Model.QuoteVolumes.Any())
+    {
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>Value</th>
+            </tr>
+            @foreach (var vol in Model.QuoteVolumes)
+            {
+                <tr>
+                    <td>@vol.dateTime</td>
+                    <td>@vol.data</td>
+                </tr>
+            }
+        </table>
+    }
+</div>
+
+<div class="info">
+    <h3>Prices</h3>
+    @if (Model.PriceValues.Any())
+    {
+        <table>
+            <tr>
+                <th>Date</th>
+                <th>Value</th>
+            </tr>
+            @foreach (var vol in Model.PriceValues)
+            {
+                <tr>
+                    <td>@vol.dateTime</td>
+                    <td>@vol.data</td>
+                </tr>
+            }
+        </table>
+    }
+</div>

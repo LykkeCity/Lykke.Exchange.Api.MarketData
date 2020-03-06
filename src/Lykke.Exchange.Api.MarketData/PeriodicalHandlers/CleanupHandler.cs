@@ -61,9 +61,7 @@ namespace Lykke.Exchange.Api.MarketData.PeriodicalHandlers
             {
                 tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataBaseVolumeKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
                 tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataQuoteVolumeKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataHighKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataLowKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
-                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataOpenPriceKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
+                tasks.Add(_database.SortedSetRemoveRangeByScoreAsync(RedisService.GetMarketDataPriceKey(assetPairId), 0, to, Exclude.Stop, CommandFlags.FireAndForget));
             }
 
             await Task.WhenAll(tasks);

@@ -12,7 +12,6 @@ using Lykke.Exchange.Api.MarketData.Contract;
 using Lykke.Exchange.Api.MarketData.Extensions;
 using Lykke.Exchange.Api.MarketData.RabbitMqSubscribers.Messages;
 using Lykke.Exchange.Api.MarketData.Services;
-using Lykke.Job.CandlesProducer.Contract;
 using Lykke.RabbitMqBroker;
 using Lykke.RabbitMqBroker.Subscriber;
 using Lykke.Service.Assets.Client.Models.v3;
@@ -114,12 +113,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                 string marketDataKey = RedisService.GetMarketDataKey(assetPairId);
                 string baseVolumeKey = RedisService.GetMarketDataBaseVolumeKey(assetPairId);
                 string quoteVolumeKey = RedisService.GetMarketDataQuoteVolumeKey(assetPairId);
-                string priceKey = RedisService.GetMarketDataOpenPriceKey(assetPairId);
-                string highKey = RedisService.GetMarketDataHighKey(assetPairId);
-                string lowKey = RedisService.GetMarketDataLowKey(assetPairId);
-                decimal highValue = 0;
-                decimal lowValue = 0;
-                var highLowDateTime = DateTime.UtcNow;
+                string priceKey = RedisService.GetMarketDataPriceKey(assetPairId);
 
                 foreach (var tradeMessage in orderMessage.Trades.OrderBy(t => t.Timestamp).ThenBy(t => t.Index))
                 {
@@ -129,8 +123,13 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
 
                     var price = (decimal)tradeMessage.Price;
                     string priceString = price.ToString(CultureInfo.InvariantCulture);
+                    var nowDate = tradeMessage.Timestamp;
+                    var nowTradeDate = nowDate.AddMilliseconds(tradeMessage.Index);
 
-                    await _database.HashSetAsync(marketDataKey, nameof(MarketSlice.LastPrice), priceString);
+                    await Task.WhenAll(
+                        _database.HashSetAsync(marketDataKey, nameof(MarketSlice.LastPrice), priceString),
+                        _database.SortedSetAddAsync(priceKey, RedisExtensions.SerializeWithTimestamp(priceString, nowTradeDate), nowTradeDate.ToUnixTime())
+                        );
 
                     var isOppositeOrderIsLimit = limitOrderIds.Contains(tradeMessage.OppositeOrderId);
                     // If opposite order is market order, then unconditionally takes the given limit order.
@@ -161,28 +160,22 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
 
                     if (tradeMessage.Price > 0 && baseVolume > 0 && quotingVolume > 0)
                     {
-                        var nowDate = tradeMessage.Timestamp;
-                        DateTime interval = nowDate.TruncateTo(CandleTimeInterval.Min5);
-                        double intervalDate = interval.ToUnixTime();
                         double now = nowDate.ToUnixTime();
                         double from = (nowDate - _marketDataInterval).ToUnixTime();
 
                         decimal baseVolumeSum = baseVolume;
                         decimal quoteVolumeSum = quotingVolume;
                         decimal priceChange = 0;
-                        highValue = (decimal)tradeMessage.Price;
-                        lowValue = (decimal)tradeMessage.Price;
-                        highLowDateTime = nowDate;
+                        decimal highValue = (decimal)tradeMessage.Price;
+                        decimal lowValue = (decimal)tradeMessage.Price;
 
                         var tasks = new List<Task>();
 
                         var baseVolumesDataTask = _database.SortedSetRangeByScoreAsync(baseVolumeKey, from, now);
                         var quoteVolumesDataTask = _database.SortedSetRangeByScoreAsync(quoteVolumeKey, from, now);
-                        var highListTask = _database.SortedSetRangeByScoreAsync(highKey, from, now);
-                        var lowListTask = _database.SortedSetRangeByScoreAsync(lowKey, from, now);
                         var priceDataTask = _database.SortedSetRangeByScoreAsync(priceKey, from, now);
 
-                        await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, highListTask, lowListTask, priceDataTask);
+                        await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, priceDataTask);
 
                         baseVolumeSum += baseVolumesDataTask.Result
                             .Where(x => x.HasValue)
@@ -192,8 +185,8 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                             .Where(x => x.HasValue)
                             .Sum(x => RedisExtensions.DeserializeTimestamped<decimal>(x));
 
-                        var currentHigh = highListTask.Result.Any(x => x.HasValue)
-                            ? highListTask.Result
+                        var currentHigh = priceDataTask.Result.Any(x => x.HasValue)
+                            ? priceDataTask.Result
                                 .Where(x => x.HasValue)
                                 .Max(x => RedisExtensions.DeserializeTimestamped<decimal>(x))
                             : (decimal?) null;
@@ -201,8 +194,8 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                         if (currentHigh.HasValue && currentHigh.Value > highValue)
                             highValue = currentHigh.Value;
 
-                        var currentLow = lowListTask.Result.Any(x => x.HasValue)
-                            ? lowListTask.Result
+                        var currentLow = priceDataTask.Result.Any(x => x.HasValue)
+                            ? priceDataTask.Result
                                 .Where(x => x.HasValue)
                                 .Min(x => RedisExtensions.DeserializeTimestamped<decimal>(x))
                             : (decimal?)null;
@@ -219,16 +212,6 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                             if (openPrice > 0)
                                 priceChange = ((decimal)tradeMessage.Price - openPrice) / openPrice;
                         }
-
-                        var priceData = await _database.SortedSetRangeByScoreAsync(priceKey, intervalDate, intervalDate);
-
-                        //new openPrice
-                        if (!priceData.Any() || !priceData[0].HasValue)
-                        {
-                            tasks.Add(_database.SortedSetAddAsync(priceKey, RedisExtensions.SerializeWithTimestamp(priceString, interval), intervalDate));
-                        }
-
-                        var nowTradeDate = nowDate.AddMilliseconds(tradeMessage.Index);
 
                         tasks.Add(_database.SortedSetAddAsync(baseVolumeKey, RedisExtensions.SerializeWithTimestamp(baseVolume, nowTradeDate), now));
                         tasks.Add(_database.SortedSetAddAsync(quoteVolumeKey, RedisExtensions.SerializeWithTimestamp(quotingVolume, nowTradeDate), now));
@@ -254,14 +237,6 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                             _cqrsEngine.PublishEvent(evt, MarketDataBoundedContext.Name);
                         }
                     }
-                }
-
-                if (highValue > 0 && lowValue > 0)
-                {
-                    await Task.WhenAll(
-                        _database.SortedSetAddAsync(highKey, RedisExtensions.SerializeWithTimestamp(highValue, highLowDateTime), highLowDateTime.ToUnixTime()),
-                        _database.SortedSetAddAsync(lowKey, RedisExtensions.SerializeWithTimestamp(lowValue, highLowDateTime), highLowDateTime.ToUnixTime())
-                    );
                 }
             }
         }

@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -85,6 +86,25 @@ namespace Lykke.Exchange.Api.MarketData.Extensions
             {
                 return MessagePack.MessagePackSerializer.Deserialize<T>(stream);
             }
+        }
+
+        public static (T data, string dateTime) DeserializeWithDate<T>(byte[] value)
+        {
+            // value is:
+            // 0 .. TimestampFormat.Length - 1 bytes: timestamp as yyyyMMddHHmmss in ASCII
+            // TimestampFormat.Length .. end bytes: serialized data
+
+            var timestampLength = "yyyyMMddHHmmssfff".Length;
+            T data;
+            var str = Encoding.UTF8.GetString(value).Substring(0, timestampLength);
+            var dateTime = DateTime.ParseExact(str, "yyyyMMddHHmmssfff", CultureInfo.InvariantCulture).ToString("u");
+
+            using (var stream = new MemoryStream(value, timestampLength, value.Length - timestampLength, writable: false))
+            {
+                data = MessagePack.MessagePackSerializer.Deserialize<T>(stream);
+            }
+
+            return (data, dateTime);
         }
     }
 }
