@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
@@ -18,16 +17,19 @@ namespace Lykke.Exchange.Api.MarketData.Services
         private readonly IDatabase _database;
         private readonly ILykkeMarketProfile _marketProfileClient;
         private readonly ICandleshistoryservice _candlesHistoryClient;
+        private readonly TimeSpan _marketDataInterval;
 
         public InitService(
             IDatabase database,
             ILykkeMarketProfile marketProfileClient,
-            ICandleshistoryservice candlesHistoryClient
+            ICandleshistoryservice candlesHistoryClient,
+            TimeSpan marketDataInterval
         )
         {
             _database = database;
             _marketProfileClient = marketProfileClient;
             _candlesHistoryClient = candlesHistoryClient;
+            _marketDataInterval = marketDataInterval;
         }
 
         public async Task LoadAsync()
@@ -41,9 +43,9 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             var marketData = marketDataTask.Result;
 
-            var todayCandlesTask = GetCandlesAsync(now.AddHours(-24), now.AddMinutes(5),
+            var todayCandlesTask = GetCandlesAsync(now - _marketDataInterval, now.AddMinutes(5),
                 assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Min5);
-            var lastMonthCandlesTask = GetCandlesAsync(now.AddYears(-1).AddHours(-24), now.AddMonths(1),
+            var lastMonthCandlesTask = GetCandlesAsync(now.AddYears(-1) - _marketDataInterval, now.AddMonths(1),
                 assetPairsTask.Result, CandlePriceType.Trades, CandleTimeInterval.Month);
             var clearDataTask = ClearDataAsync(marketData.Select(x => x.AssetPairId).ToList());
 
@@ -75,8 +77,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
             {
                 keys.Add(RedisService.GetMarketDataBaseVolumeKey(assetPairId));
                 keys.Add(RedisService.GetMarketDataQuoteVolumeKey(assetPairId));
-                keys.Add(RedisService.GetMarketDataHighKey(assetPairId));
-                keys.Add(RedisService.GetMarketDataLowKey(assetPairId));
+                keys.Add(RedisService.GetMarketDataPriceKey(assetPairId));
             }
 
             return _database.KeyDeleteAsync(keys.Select(x => (RedisKey)x).ToArray());
@@ -90,8 +91,6 @@ namespace Lykke.Exchange.Api.MarketData.Services
             var pricesValue = new Dictionary<string, SortedSetEntry[]>();
             var baseVolumesValue = new Dictionary<string, SortedSetEntry[]>();
             var quoteVolumesValue = new Dictionary<string, SortedSetEntry[]>();
-            var highValue = new Dictionary<string, SortedSetEntry[]>();
-            var lowValue = new Dictionary<string, SortedSetEntry[]>();
 
             tasks.Add(_database.SortedSetAddAsync(RedisService.GetAssetPairsKey(),
                 marketData.Select(x => new SortedSetEntry(x.AssetPairId, 0)).ToArray()));
@@ -112,16 +111,6 @@ namespace Lykke.Exchange.Api.MarketData.Services
                     prices[assetPairId].Select(x =>
                         new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.TradingOppositeVolume, x.DateTime),
                             x.DateTime.ToUnixTime())).ToArray());
-
-                highValue.Add(assetPairId,
-                    prices[assetPairId].Select(x =>
-                        new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.High, x.DateTime),
-                            x.DateTime.ToUnixTime())).ToArray());
-
-                lowValue.Add(assetPairId,
-                    prices[assetPairId].Select(x =>
-                        new SortedSetEntry(RedisExtensions.SerializeWithTimestamp((decimal) x.Low, x.DateTime),
-                            x.DateTime.ToUnixTime())).ToArray());
             }
 
             foreach (MarketSlice marketSlice in marketData)
@@ -135,11 +124,9 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             foreach (var assetPairId in assetPairIds)
             {
-                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataOpenPriceKey(assetPairId), pricesValue[assetPairId]));
+                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataPriceKey(assetPairId), pricesValue[assetPairId]));
                 tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataBaseVolumeKey(assetPairId), baseVolumesValue[assetPairId]));
                 tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataQuoteVolumeKey(assetPairId), quoteVolumesValue[assetPairId]));
-                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataHighKey(assetPairId), highValue[assetPairId]));
-                tasks.Add(_database.SortedSetAddAsync(RedisService.GetMarketDataLowKey(assetPairId), lowValue[assetPairId]));
             }
 
             await Task.WhenAll(tasks);

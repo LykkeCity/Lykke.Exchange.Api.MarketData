@@ -12,21 +12,22 @@ namespace Lykke.Exchange.Api.MarketData.Services
     public class RedisService
     {
         private readonly IDatabase _database;
+        private readonly TimeSpan _marketDataInterval;
 
         public RedisService(
-            IDatabase database
+            IDatabase database,
+            TimeSpan marketDataInterval
             )
         {
             _database = database;
+            _marketDataInterval = marketDataInterval;
         }
 
         public static string GetMarketDataKey(string assetPairId) => $"MarketData:data:{assetPairId}:Slice";
         public static string GetAssetPairsKey() => "MarketData:AssetPairs";
         public static string GetMarketDataBaseVolumeKey(string assetPairId) => $"MarketData:data:{assetPairId}:BaseVolume";
         public static string GetMarketDataQuoteVolumeKey(string assetPairId) => $"MarketData:data:{assetPairId}:QuoteVolume";
-        public static string GetMarketDataHighKey(string assetPairId) => $"MarketData:data:{assetPairId}:High";
-        public static string GetMarketDataLowKey(string assetPairId) => $"MarketData:data:{assetPairId}:Low";
-        public static string GetMarketDataOpenPriceKey(string assetPairId) => $"MarketData:data:{assetPairId}:OpenPrice";
+        public static string GetMarketDataPriceKey(string assetPairId) => $"MarketData:data:{assetPairId}:Price";
 
         public async Task<MarketSlice> GetMarketDataAsync(string assetPair)
         {
@@ -35,15 +36,15 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
             var nowDate = DateTime.UtcNow;
             var now = nowDate.ToUnixTime();
-            var from = nowDate.AddHours(-24).ToUnixTime();
+            var from = (nowDate - _marketDataInterval).ToUnixTime();
 
             var baseVolumesDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataBaseVolumeKey(assetPair), from, now);
             var quoteVolumesDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataQuoteVolumeKey(assetPair), from, now);
-            var openPriceDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataOpenPriceKey(assetPair), from, now);
-            var highDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataHighKey(assetPair), from, now);
-            var lowDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataLowKey(assetPair), from, now);
+            var pricesDataTask = _database.SortedSetRangeByScoreAsync(GetMarketDataPriceKey(assetPair), from, now);
 
-            await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, openPriceDataTask, highDataTask, lowDataTask);
+            await Task.WhenAll(baseVolumesDataTask, quoteVolumesDataTask, pricesDataTask);
+
+            RedisValue[] prices = pricesDataTask.Result;
 
             decimal baseVolume = baseVolumesDataTask.Result
                 .Where(x => x.HasValue)
@@ -53,17 +54,17 @@ namespace Lykke.Exchange.Api.MarketData.Services
                 .Where(x => x.HasValue)
                 .Sum(x => RedisExtensions.DeserializeTimestamped<decimal>(x));
 
-            decimal high = highDataTask.Result.Any(x => x.HasValue) ? highDataTask.Result
+            decimal high = prices.Any(x => x.HasValue) ? prices
                 .Where(x => x.HasValue)
                 .Max(x => RedisExtensions.DeserializeTimestamped<decimal>(x)) : 0;
 
-            decimal low = lowDataTask.Result.Any(x => x.HasValue) ? lowDataTask.Result
+            decimal low = prices.Any(x => x.HasValue) ? prices
                 .Where(x => x.HasValue)
                 .Min(x => RedisExtensions.DeserializeTimestamped<decimal>(x)) : 0;
 
-            if (openPriceDataTask.Result.Any() && openPriceDataTask.Result[0].HasValue)
+            if (prices.Any() && prices[0].HasValue)
             {
-                decimal price = RedisExtensions.DeserializeTimestamped<decimal>(openPriceDataTask.Result[0]);
+                decimal price = RedisExtensions.DeserializeTimestamped<decimal>(pricesDataTask.Result[0]);
 
                 if (price > 0)
                 {
@@ -101,6 +102,11 @@ namespace Lykke.Exchange.Api.MarketData.Services
             result.AddRange(tasks.Select(x => x.Result));
 
             return result;
+        }
+
+        public TimeSpan GetMarketDataInterval()
+        {
+            return _marketDataInterval;
         }
 
         private async Task<List<string>> GetAssetPairsAsync()

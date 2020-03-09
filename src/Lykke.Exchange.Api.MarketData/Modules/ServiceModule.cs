@@ -78,7 +78,10 @@ namespace Lykke.Exchange.Api.MarketData.Modules
                 new Candleshistoryservice(new Uri(_appSettings.CurrentValue.MarketDataService.CandlesHistoryUrl))
             ).As<ICandleshistoryservice>().SingleInstance();
 
-            builder.RegisterType<InitService>().AsSelf().SingleInstance();
+            builder.RegisterType<InitService>()
+                .WithParameter(TypedParameter.From(_appSettings.CurrentValue.MarketDataService.MarketDataInterval))
+                .AsSelf()
+                .SingleInstance();
 
             builder.RegisterType<QuotesFeedSubscriber>()
                 .WithParameter(new NamedParameter("connectionString", _appSettings.CurrentValue.MarketDataService.RabbitMq.QuotesConnectionString))
@@ -89,13 +92,18 @@ namespace Lykke.Exchange.Api.MarketData.Modules
             builder.RegisterType<LimitOrdersSubscriber>()
                 .WithParameter(new NamedParameter("connectionString", _appSettings.CurrentValue.MarketDataService.RabbitMq.LimitOrdersConnectionString))
                 .WithParameter(new NamedParameter("exchangeName", _appSettings.CurrentValue.MarketDataService.RabbitMq.LimitOrdersExchangeName))
+                .WithParameter(TypedParameter.From(_appSettings.CurrentValue.MarketDataService.MarketDataInterval))
                 .AsSelf()
                 .SingleInstance();
 
             builder.RegisterAssetsClient(_appSettings.CurrentValue.AssetsServiceClient);
 
-            builder.RegisterType<RedisService>().SingleInstance();
+            builder.RegisterType<RedisService>()
+                .WithParameter(TypedParameter.From(_appSettings.CurrentValue.MarketDataService.MarketDataInterval))
+                .SingleInstance();
+
             builder.RegisterType<CleanupHandler>()
+                .WithParameter(TypedParameter.From(_appSettings.CurrentValue.MarketDataService.MarketDataInterval))
                 .As<IStartable>()
                 .AutoActivate()
                 .SingleInstance();
