@@ -68,7 +68,7 @@ namespace Lykke.Exchange.Api.MarketData.Services
 
                 if (price > 0)
                 {
-                    decimal priceChange = (decimal.Parse(marketSlice.LastPrice, CultureInfo.InvariantCulture) - price) / price;
+                    decimal priceChange = (decimal.Parse(marketSlice.LastPrice, NumberStyles.Any, CultureInfo.InvariantCulture) - price) / price;
                     marketSlice.PriceChange = priceChange.ToString(CultureInfo.InvariantCulture);
                 }
             }
