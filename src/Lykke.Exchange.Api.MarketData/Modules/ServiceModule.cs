@@ -4,7 +4,7 @@ using Grpc.Core;
 using Grpc.Reflection;
 using Grpc.Reflection.V1Alpha;
 using JetBrains.Annotations;
-using Lykke.Exchange.Api.MarketData.Contract.Entities;
+using Lykke.Exchange.Api.MarketData.Models;
 using Lykke.Exchange.Api.MarketData.PeriodicalHandlers;
 using Lykke.Exchange.Api.MarketData.RabbitMqSubscribers;
 using Lykke.Exchange.Api.MarketData.Services;

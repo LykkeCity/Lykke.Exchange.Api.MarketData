@@ -1,15 +1,15 @@
 using System;
 using MyNoSqlServer.DataWriter.Abstractions;
 
-namespace Lykke.Exchange.Api.MarketData.Contract.Entities
+namespace Lykke.Exchange.Api.MarketData.Models
 {
-    public class Ticker : IMyNoSqlEntity
+    public class Price : IMyNoSqlEntity
     {
-        public Ticker()
+        public Price()
         {
         }
 
-        public Ticker(string assetPairId)
+        public Price(string assetPairId)
         {
             AssetPairId = assetPairId;
             PartitionKey = GetPk();
@@ -18,18 +18,13 @@ namespace Lykke.Exchange.Api.MarketData.Contract.Entities
         }
 
         public string AssetPairId { get; set; }
-        public decimal VolumeBase { get; set; }
-        public decimal VolumeQuote { get; set; }
-        public decimal PriceChange { get; set; }
-        public decimal LastPrice { get; set; }
-        public decimal High { get; set; }
-        public decimal Low { get; set; }
-
+        public decimal Bid { get; set; }
+        public decimal Ask { get; set; }
         public string PartitionKey { get; set; }
         public string RowKey { get; set; }
         public DateTime TimeStamp { get; set; }
         public DateTime? Expires { get; set; }
 
-        public static string GetPk() => "Ticker";
+        public static string GetPk() => "Price";
     }
 }

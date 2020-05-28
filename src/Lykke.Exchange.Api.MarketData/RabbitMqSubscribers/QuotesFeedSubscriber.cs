@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Autofac;
 using Common.Log;
 using Lykke.Common.Log;
-using Lykke.Exchange.Api.MarketData.Contract.Entities;
+using Lykke.Exchange.Api.MarketData.Models;
 using Lykke.Exchange.Api.MarketData.Services;
 using Lykke.Job.QuotesProducer.Contract;
 using Lykke.RabbitMqBroker;

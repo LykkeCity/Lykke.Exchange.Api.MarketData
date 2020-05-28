@@ -1,6 +1,6 @@
 using System;
 using System.Globalization;
-using Lykke.Exchange.Api.MarketData.Contract.Entities;
+using Lykke.Exchange.Api.MarketData.Models;
 
 namespace Lykke.Exchange.Api.MarketData.Extensions
 {
