@@ -5,9 +5,11 @@ using System.Linq;
 using System.Threading.Tasks;
 using Common;
 using Lykke.Exchange.Api.MarketData.Extensions;
+using Lykke.Exchange.Api.MarketData.Models;
 using Lykke.Service.CandlesHistory.Client;
 using Lykke.Service.CandlesHistory.Client.Models;
 using Lykke.Service.MarketProfile.Client;
+using MyNoSqlServer.DataWriter.Abstractions;
 using StackExchange.Redis;
 
 namespace Lykke.Exchange.Api.MarketData.Services
@@ -17,18 +19,24 @@ namespace Lykke.Exchange.Api.MarketData.Services
         private readonly IDatabase _database;
         private readonly ILykkeMarketProfile _marketProfileClient;
         private readonly ICandleshistoryservice _candlesHistoryClient;
+        private readonly IMyNoSqlServerDataWriter<Ticker> _tickerWriter;
+        private readonly IMyNoSqlServerDataWriter<Price> _priceWriter;
         private readonly TimeSpan _marketDataInterval;
 
         public InitService(
             IDatabase database,
             ILykkeMarketProfile marketProfileClient,
             ICandleshistoryservice candlesHistoryClient,
+            IMyNoSqlServerDataWriter<Ticker> tickerWriter,
+            IMyNoSqlServerDataWriter<Price> priceWriter,
             TimeSpan marketDataInterval
         )
         {
             _database = database;
             _marketProfileClient = marketProfileClient;
             _candlesHistoryClient = candlesHistoryClient;
+            _tickerWriter = tickerWriter;
+            _priceWriter = priceWriter;
             _marketDataInterval = marketDataInterval;
         }
 
@@ -80,7 +88,11 @@ namespace Lykke.Exchange.Api.MarketData.Services
                 keys.Add(RedisService.GetMarketDataPriceKey(assetPairId));
             }
 
-            return _database.KeyDeleteAsync(keys.Select(x => (RedisKey)x).ToArray());
+            return Task.WhenAll(
+                _database.KeyDeleteAsync(keys.Select(x => (RedisKey) x).ToArray()),
+                _tickerWriter.CleanAndKeepMaxPartitions(0),
+                _priceWriter.CleanAndKeepMaxPartitions(0)
+            );
         }
 
         private async Task SaveMarketDataAsync(List<MarketSlice> marketData, Dictionary<string, IList<Candle>> prices)
@@ -117,6 +129,15 @@ namespace Lykke.Exchange.Api.MarketData.Services
             {
                 tasks.Add(_database.HashSetAsync(RedisService.GetMarketDataKey(marketSlice.AssetPairId),
                     marketSlice.ToMarketSliceHash()));
+            }
+
+            await Task.WhenAll(tasks);
+            tasks = new List<Task>();
+
+            foreach (MarketSlice marketSlice in marketData)
+            {
+                tasks.Add(_priceWriter.InsertOrReplaceAsync(marketSlice.ToPrice()));
+                tasks.Add(_tickerWriter.InsertOrReplaceAsync(marketSlice.ToTicker()));
             }
 
             await Task.WhenAll(tasks);
