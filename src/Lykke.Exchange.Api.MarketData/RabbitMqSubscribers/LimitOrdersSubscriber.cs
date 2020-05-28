@@ -9,6 +9,7 @@ using Common.Log;
 using Lykke.Common.Log;
 using Lykke.Cqrs;
 using Lykke.Exchange.Api.MarketData.Contract;
+using Lykke.Exchange.Api.MarketData.Contract.Entities;
 using Lykke.Exchange.Api.MarketData.Extensions;
 using Lykke.Exchange.Api.MarketData.RabbitMqSubscribers.Messages;
 using Lykke.Exchange.Api.MarketData.Services;
@@ -16,6 +17,7 @@ using Lykke.RabbitMqBroker;
 using Lykke.RabbitMqBroker.Subscriber;
 using Lykke.Service.Assets.Client.Models.v3;
 using Lykke.Service.Assets.Client.ReadModels;
+using MyNoSqlServer.DataWriter.Abstractions;
 using StackExchange.Redis;
 
 namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
@@ -29,6 +31,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
         private readonly string _connectionString;
         private readonly string _exchangeName;
         private readonly TimeSpan _marketDataInterval;
+        private readonly IMyNoSqlServerDataWriter<Ticker> _tickerWriter;
         private readonly ILog _log;
         private RabbitMqSubscriber<LimitOrdersMessage> _subscriber;
 
@@ -39,7 +42,8 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
             ILogFactory logFactory,
             string connectionString,
             string exchangeName,
-            TimeSpan marketDataInterval
+            TimeSpan marketDataInterval,
+            IMyNoSqlServerDataWriter<Ticker> tickerWriter
         )
         {
             _database = database;
@@ -49,6 +53,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
             _connectionString = connectionString;
             _exchangeName = exchangeName;
             _marketDataInterval = marketDataInterval;
+            _tickerWriter = tickerWriter;
             _log = logFactory.CreateLog(this);
         }
 
@@ -232,9 +237,24 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                                 Low = lowValue
                             };
 
-                            _log.Info($"Send MarketDataChangedEvent for trade index = {tradeMessage.Index}", context: evt.ToJson());
-
                             _cqrsEngine.PublishEvent(evt, MarketDataBoundedContext.Name);
+
+                            try
+                            {
+                                await _tickerWriter.InsertOrReplaceAsync(new Ticker(assetPairId)
+                                {
+                                    VolumeBase = baseVolumeSum,
+                                    VolumeQuote = quoteVolumeSum,
+                                    PriceChange = priceChange,
+                                    LastPrice = (decimal) tradeMessage.Price,
+                                    High = highValue,
+                                    Low = lowValue
+                                });
+                            }
+                            catch (Exception ex)
+                            {
+                                _log.Error(ex, "Error sending ticker to MyNySqlServer", context: evt.ToJson());
+                            }
                         }
                     }
                 }

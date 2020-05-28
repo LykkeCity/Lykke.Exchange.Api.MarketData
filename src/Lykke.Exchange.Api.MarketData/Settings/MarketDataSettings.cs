@@ -14,5 +14,6 @@ namespace Lykke.Exchange.Api.MarketData.Settings
         public string MarketProfileUrl { get; set; }
         public string CandlesHistoryUrl { get; set; }
         public TimeSpan MarketDataInterval { get; set; }
+        public MyNoSqlSettings MyNoSqlServer { get; set; }
     }
 }
