@@ -4,6 +4,7 @@ using Grpc.Core;
 using Grpc.Reflection;
 using Grpc.Reflection.V1Alpha;
 using JetBrains.Annotations;
+using Lykke.Exchange.Api.MarketData.Models;
 using Lykke.Exchange.Api.MarketData.PeriodicalHandlers;
 using Lykke.Exchange.Api.MarketData.RabbitMqSubscribers;
 using Lykke.Exchange.Api.MarketData.Services;
@@ -13,6 +14,7 @@ using Lykke.Service.Assets.Client;
 using Lykke.Service.CandlesHistory.Client;
 using Lykke.Service.MarketProfile.Client;
 using Lykke.SettingsReader;
+using MyNoSqlServer.DataWriter.Abstractions;
 using StackExchange.Redis;
 
 namespace Lykke.Exchange.Api.MarketData.Modules
@@ -107,6 +109,24 @@ namespace Lykke.Exchange.Api.MarketData.Modules
                 .As<IStartable>()
                 .AutoActivate()
                 .SingleInstance();
+
+            builder.Register(ctx =>
+            {
+                return _appSettings.CurrentValue.MarketDataService.MyNoSqlServer.Enabled
+                    ? new MyNoSqlServer.DataWriter.MyNoSqlServerDataWriter<Ticker>(() =>
+                            _appSettings.CurrentValue.MarketDataService.MyNoSqlServer.ServiceUrl,
+                        _appSettings.CurrentValue.MarketDataService.MyNoSqlServer.TickersTableName)
+                    : (IMyNoSqlServerDataWriter<Ticker>) new MockNoSqlServerDataWriter<Ticker>();
+            }).As<IMyNoSqlServerDataWriter<Ticker>>().SingleInstance();
+
+            builder.Register(ctx =>
+            {
+                return _appSettings.CurrentValue.MarketDataService.MyNoSqlServer.Enabled
+                    ? new MyNoSqlServer.DataWriter.MyNoSqlServerDataWriter<Price>(() =>
+                        _appSettings.CurrentValue.MarketDataService.MyNoSqlServer.ServiceUrl,
+                    _appSettings.CurrentValue.MarketDataService.MyNoSqlServer.PricesTableName)
+                    : (IMyNoSqlServerDataWriter<Price>) new MockNoSqlServerDataWriter<Price>();
+            }).As<IMyNoSqlServerDataWriter<Price>>().SingleInstance();
         }
     }
 }
