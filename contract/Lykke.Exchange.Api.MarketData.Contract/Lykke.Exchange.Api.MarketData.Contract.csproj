@@ -15,7 +15,6 @@
     </PackageReference>
     <PackageReference Include="JetBrains.Annotations" Version="11.1.0" />
     <PackageReference Include="Lykke.SettingsReader" Version="5.2.0" />
-    <PackageReference Include="Swisschain.MyNoSqlServer.DataWriter" Version="1.2.1" />
   </ItemGroup>
 
   <ItemGroup>
