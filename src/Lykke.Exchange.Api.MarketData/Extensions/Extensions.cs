@@ -38,7 +38,7 @@ namespace Lykke.Exchange.Api.MarketData.Extensions
             {
                 PartitionKey = Price.GetPk(),
                 RowKey = marketSlice.AssetPairId,
-                TimeStamp = DateTime.UtcNow,
+                UpdatedDt = DateTime.UtcNow,
                 AssetPairId = marketSlice.AssetPairId,
                 Bid = string.IsNullOrEmpty(marketSlice.Bid)
                     ? 0

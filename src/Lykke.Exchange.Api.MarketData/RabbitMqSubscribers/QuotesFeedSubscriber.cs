@@ -85,7 +85,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                 else
                     entity.Ask = (decimal) quote.Price;
 
-                entity.TimeStamp = DateTime.UtcNow;
+                entity.UpdatedDt =quote.Timestamp;
 
                 writerTask = _priceWriter.InsertOrReplaceAsync(entity);
             }

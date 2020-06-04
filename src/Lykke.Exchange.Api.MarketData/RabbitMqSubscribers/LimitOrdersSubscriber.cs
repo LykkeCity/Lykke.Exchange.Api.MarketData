@@ -248,7 +248,8 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
                                     PriceChange = priceChange,
                                     LastPrice = (decimal) tradeMessage.Price,
                                     High = highValue,
-                                    Low = lowValue
+                                    Low = lowValue,
+                                    UpdatedDt = nowTradeDate
                                 });
                             }
                             catch (Exception ex)
