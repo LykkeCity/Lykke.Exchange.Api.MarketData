@@ -37,7 +37,7 @@ MarketDataService:
     settings-key: MarketDataService-MarketDataInterval
   MyNoSqlServer:
     ServiceUrl:
-      settings-key: MyNoSqlServer-ReaderUrl
+      settings-key: MyNoSqlServer-WriterUrl
     TickersTableName:
       settings-key: MyNoSqlServer-TickersTableName
     PricesTableName:
