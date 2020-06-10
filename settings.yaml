@@ -35,6 +35,15 @@ MarketDataService:
     settings-key: MarketDataService-GrpcPort
   MarketDataInterval:
     settings-key: MarketDataService-MarketDataInterval
+  MyNoSqlServer:
+    ServiceUrl:
+      settings-key: MyNoSqlServer-WriterUrl
+    TickersTableName:
+      settings-key: MyNoSqlServer-TickersTableName
+    PricesTableName:
+      settings-key: MyNoSqlServer-PricesTableName
+    Enabled:
+      settings-key: MarketDataService-MyNoSqlServer-Enabled
 SlackNotifications:
   AzureQueue:
     ConnectionString:
