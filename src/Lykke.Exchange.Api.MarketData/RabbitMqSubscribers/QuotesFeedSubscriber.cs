@@ -43,7 +43,7 @@ namespace Lykke.Exchange.Api.MarketData.RabbitMqSubscribers
         public void Start()
         {
             var settings = RabbitMqSubscriptionSettings
-                .ForSubscriber(_connectionString, "lykke", _exchangeName, "lykke", $"MarketData-{nameof(QuotesFeedSubscriber)}-local");
+                .ForSubscriber(_connectionString, "lykke", _exchangeName, "lykke", $"MarketData-{nameof(QuotesFeedSubscriber)}");
 
             settings.DeadLetterExchangeName = null;
 
